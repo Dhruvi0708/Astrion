@@ -77,3 +77,14 @@ export function useCreateDocument(sourceId: string) {
     },
   });
 }
+
+export function useUploadDocument(sourceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, title }: { file: File; title?: string }) => api.uploadDocument(sourceId, file, title),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.documents(sourceId) });
+      qc.invalidateQueries({ queryKey: ['workspaces'] });
+    },
+  });
+}

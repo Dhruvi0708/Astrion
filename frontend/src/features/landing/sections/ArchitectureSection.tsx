@@ -39,7 +39,10 @@ export function ArchitectureSection() {
 
   return (
     <section id="architecture" aria-labelledby="arch-title" className="relative scroll-mt-16 overflow-hidden border-t border-line/60 py-28 md:py-36">
-      <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[680px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--cyan)/0.05),transparent_65%)]" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[680px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgb(var(--cyan)/0.05),transparent_65%)]"
+      />
       <div className="mx-auto max-w-[1240px] px-5 md:px-8">
         <SectionIntro index="02" eyebrow="The ASTRION architecture" title="Six stages. One continuously learning system." id="arch-title">
           <p>
@@ -62,7 +65,18 @@ export function ArchitectureSection() {
               <circle cx={C} cy={C} r={R - 52} fill="none" stroke="#1c253d" />
               {STAGES.map((_, i) => {
                 const p = pos(i);
-                return <line key={`s${i}`} x1={C} y1={C} x2={p.x} y2={p.y} stroke={i === active ? '#4fe3f0' : '#1c253d'} strokeOpacity={i === active ? 0.5 : 1} strokeWidth={i === active ? 1 : 0.8} />;
+                return (
+                  <line
+                    key={`s${i}`}
+                    x1={C}
+                    y1={C}
+                    x2={p.x}
+                    y2={p.y}
+                    stroke={i === active ? '#4fe3f0' : '#1c253d'}
+                    strokeOpacity={i === active ? 0.5 : 1}
+                    strokeWidth={i === active ? 1 : 0.8}
+                  />
+                );
               })}
               {STAGES.map((_, i) => (
                 <g key={`a${i}`}>
@@ -86,11 +100,27 @@ export function ArchitectureSection() {
                 return (
                   <g key={s.id} onClick={() => select(i)} className="cursor-pointer">
                     {isActive && <circle cx={p.x} cy={p.y} r={34} fill="#4fe3f0" fillOpacity={0.08} />}
-                    <circle cx={p.x} cy={p.y} r={24} fill="#0a0e1a" stroke={isActive ? '#4fe3f0' : s.status === 'foundation' ? '#2c3858' : '#1c253d'} strokeWidth={isActive ? 1.5 : 1} strokeDasharray={s.status === 'planned' && !isActive ? '3 3' : undefined} />
+                    <circle
+                      cx={p.x}
+                      cy={p.y}
+                      r={24}
+                      fill="#0a0e1a"
+                      stroke={isActive ? '#4fe3f0' : s.status === 'foundation' ? '#2c3858' : '#1c253d'}
+                      strokeWidth={isActive ? 1.5 : 1}
+                      strokeDasharray={s.status === 'planned' && !isActive ? '3 3' : undefined}
+                    />
                     <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={12} fontFamily="ui-monospace, monospace" fill={isActive ? '#4fe3f0' : '#8b97ad'}>
                       0{s.index}
                     </text>
-                    <text x={p.x} y={p.y + (p.y > C ? 46 : -36)} textAnchor="middle" fontSize={12.5} fontWeight={500} fontFamily="Space Grotesk Variable, sans-serif" fill={isActive ? '#e6ecf6' : '#8b97ad'}>
+                    <text
+                      x={p.x}
+                      y={p.y + (p.y > C ? 46 : -36)}
+                      textAnchor="middle"
+                      fontSize={12.5}
+                      fontWeight={500}
+                      fontFamily="Space Grotesk Variable, sans-serif"
+                      fill={isActive ? '#e6ecf6' : '#8b97ad'}
+                    >
                       {s.name}
                     </text>
                   </g>
@@ -100,7 +130,14 @@ export function ArchitectureSection() {
             {/* Centre readout */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <AnimatePresence mode="wait">
-                <motion.div key={stage.id} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.35 }} className="text-center">
+                <motion.div
+                  key={stage.id}
+                  initial={{ opacity: 0, scale: 0.94 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.35 }}
+                  className="text-center"
+                >
                   <stage.icon size={22} className="mx-auto text-cyan" strokeWidth={1.5} />
                   <p className="mt-2 font-display text-xl font-medium text-ink">{stage.name}</p>
                   <p className="mt-0.5 text-2xs uppercase tracking-[0.16em] text-ink-faint">Stage 0{stage.index}</p>

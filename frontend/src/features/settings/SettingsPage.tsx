@@ -17,9 +17,24 @@ function StatusRow({ name, role, query }: { name: string; role: string; query: R
   const data = query.data as { status: string; latency_ms?: number | null; detail?: string | null; version?: string } | undefined;
   let badge: React.ReactNode;
   if (query.isLoading) badge = <Badge>Checking…</Badge>;
-  else if (query.isError) badge = <Badge tone="offline" dot>Unreachable</Badge>;
-  else if (data && 'latency_ms' in data) badge = <Badge tone={DEP_TONE[data.status as DependencyStatus]} dot>{DEP_LABEL[data.status as DependencyStatus]}</Badge>;
-  else badge = <Badge tone="live" dot>Online</Badge>;
+  else if (query.isError)
+    badge = (
+      <Badge tone="offline" dot>
+        Unreachable
+      </Badge>
+    );
+  else if (data && 'latency_ms' in data)
+    badge = (
+      <Badge tone={DEP_TONE[data.status as DependencyStatus]} dot>
+        {DEP_LABEL[data.status as DependencyStatus]}
+      </Badge>
+    );
+  else
+    badge = (
+      <Badge tone="live" dot>
+        Online
+      </Badge>
+    );
 
   return (
     <li className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
@@ -49,7 +64,11 @@ export default function SettingsPage() {
 
   return (
     <Page className="max-w-[1100px]">
-      <PageHeader eyebrow="Settings" title="Settings" description="Live system status for the ASTRION backend and its dependencies, and preferences stored in this browser." />
+      <PageHeader
+        eyebrow="Settings"
+        title="Settings"
+        description="Live system status for the ASTRION backend and its dependencies, and preferences stored in this browser."
+      />
 
       <Panel
         title="System status"
@@ -74,7 +93,9 @@ export default function SettingsPage() {
           <StatusRow name="PostgreSQL" role="Application and relational metadata" query={pg} />
           <StatusRow name="Neo4j" role="Knowledge-graph relationships and traversal" query={neo} />
         </ul>
-        <p className="mt-2 text-2xs leading-relaxed text-ink-faint">Results come directly from the backend’s health endpoints. A dependency is only shown as connected when the backend has verified the connection.</p>
+        <p className="mt-2 text-2xs leading-relaxed text-ink-faint">
+          Results come directly from the backend’s health endpoints. A dependency is only shown as connected when the backend has verified the connection.
+        </p>
       </Panel>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -94,7 +115,9 @@ export default function SettingsPage() {
                 onClick={() => prefs.setReduceMotion(!prefs.reduceMotion)}
                 className={`relative h-5 w-9 shrink-0 rounded-full border transition-colors ${prefs.reduceMotion ? 'border-cyan/60 bg-cyan/25' : 'border-line-strong bg-deep'}`}
               >
-                <span className={`absolute top-0.5 h-3.5 w-3.5 rounded-full transition-[left] ${prefs.reduceMotion ? 'left-[18px] bg-cyan' : 'left-0.5 bg-ink-faint'}`} />
+                <span
+                  className={`absolute top-0.5 h-3.5 w-3.5 rounded-full transition-[left] ${prefs.reduceMotion ? 'left-[18px] bg-cyan' : 'left-0.5 bg-ink-faint'}`}
+                />
               </button>
             </div>
             <div className="flex items-center justify-between gap-4">

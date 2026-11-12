@@ -51,7 +51,11 @@ class Document(UUIDPrimaryKey, Timestamps, Base):
     media_type: Mapped[str] = mapped_column(String(255), nullable=False)
     byte_size: Mapped[int | None] = mapped_column(BigInteger)
     content_hash: Mapped[str | None] = mapped_column(String(64))  # SHA-256 hex
-    storage_uri: Mapped[str | None] = mapped_column(String(2048))
+    storage_uri: Mapped[str | None] = mapped_column(String(2048))  # external reference supplied by the client (metadata only)
+    # Set only when ASTRION stores the file itself. The key is generated server-side, never from user input.
+    storage_backend: Mapped[str | None] = mapped_column(String(16))
+    storage_key: Mapped[str | None] = mapped_column(String(512), unique=True)
+    original_filename: Mapped[str | None] = mapped_column(String(255))  # sanitised display name
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     processing_status: Mapped[DocumentProcessingStatus] = mapped_column(
         db_enum(DocumentProcessingStatus, "document_processing_status"), default=DocumentProcessingStatus.registered, nullable=False
@@ -59,3 +63,7 @@ class Document(UUIDPrimaryKey, Timestamps, Base):
     processing_error: Mapped[str | None] = mapped_column(Text)
 
     source: Mapped[Source] = relationship(back_populates="documents")
+
+    @property
+    def has_file(self) -> bool:
+        return self.storage_key is not None

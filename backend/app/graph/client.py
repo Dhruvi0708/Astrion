@@ -9,7 +9,10 @@ import logging
 import time
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
+
+if TYPE_CHECKING:
+    from app.graph.repository import GraphRepository
 
 from app.core.config import Settings, get_settings
 
@@ -51,22 +54,33 @@ class Neo4jGraphClient:
             auth=(settings.neo4j_user, settings.neo4j_password.get_secret_value()),
             connection_timeout=settings.neo4j_timeout_seconds,
             connection_acquisition_timeout=settings.neo4j_timeout_seconds,
-            max_transaction_retry_time=0,
+            max_transaction_retry_time=5.0,  # managed transactions retry transient errors briefly
+            max_connection_lifetime=1800,
         )
 
+        self._query_timeout = settings.neo4j_query_timeout_seconds
+
     def health(self) -> GraphHealth:
-        from neo4j.exceptions import Neo4jError, ServiceUnavailable
+        from neo4j.exceptions import AuthError, Neo4jError, ServiceUnavailable
 
         start = time.perf_counter()
         try:
             self._driver.verify_connectivity()
             records, _, _ = self._driver.execute_query("RETURN 1 AS ok", database_=self._database)
             ok = bool(records and records[0]["ok"] == 1)
+        except AuthError:
+            logger.warning("neo4j health check failed", extra={"error": "AuthError"})
+            return GraphHealth(status="unavailable", detail="AuthError: authentication failed")
         except (ServiceUnavailable, Neo4jError, OSError, ValueError) as exc:
             logger.warning("neo4j health check failed", extra={"error": type(exc).__name__})
             return GraphHealth(status="unavailable", detail=f"{type(exc).__name__}: connection failed")
         latency = round((time.perf_counter() - start) * 1000, 2)
         return GraphHealth(status="ok" if ok else "unavailable", latency_ms=latency)
+
+    def repository(self) -> "GraphRepository":
+        from app.graph.repository import GraphRepository
+
+        return GraphRepository(self._driver, self._database, self._query_timeout)
 
     def close(self) -> None:
         self._driver.close()

@@ -91,7 +91,9 @@ function WorkspacesPanel() {
           {recent.map((ws) => (
             <li key={ws.id}>
               <button onClick={() => setActiveId(ws.id)} className="flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left hover:bg-raised/50">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-cyan/10 font-display text-xs font-semibold text-cyan">{ws.name.charAt(0).toUpperCase()}</span>
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-cyan/10 font-display text-xs font-semibold text-cyan">
+                  {ws.name.charAt(0).toUpperCase()}
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[0.82rem] text-ink">{ws.name}</span>
                   <span className="block text-2xs text-ink-faint">
@@ -180,7 +182,9 @@ function ActivityTimeline() {
         <ol className="relative space-y-4 before:absolute before:bottom-1 before:left-[5px] before:top-1 before:w-px before:bg-line">
           {events.map((e) => (
             <li key={e.id} className="relative pl-6">
-              <span className={`absolute left-0 top-1 h-[11px] w-[11px] rounded-full border-2 border-abyss ${e.kind === 'workspace' ? 'bg-cyan' : 'bg-verified'}`} />
+              <span
+                className={`absolute left-0 top-1 h-[11px] w-[11px] rounded-full border-2 border-abyss ${e.kind === 'workspace' ? 'bg-cyan' : 'bg-verified'}`}
+              />
               <p className="text-[0.8rem] text-ink">{e.text}</p>
               <p className="text-2xs text-ink-faint">{relativeTime(e.at)}</p>
             </li>
@@ -211,7 +215,10 @@ export default function OverviewPage() {
       <PageHeader
         eyebrow="Overview"
         title={active?.name ?? 'Your intelligence workspace'}
-        description={active?.description ?? 'A summary of your workspace: live data from the API, alongside clearly labelled sample content for capabilities still in development.'}
+        description={
+          active?.description ??
+          'A summary of your workspace: live data from the API, alongside clearly labelled sample content for capabilities still in development.'
+        }
         actions={
           <>
             <Button variant="ghost" onClick={() => openCommand(true)}>

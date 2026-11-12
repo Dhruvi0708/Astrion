@@ -34,7 +34,15 @@ export function GraphLegend({ className, relations = true }: { className?: strin
             {RELATIONS.map((r) => (
               <li key={r} className="flex items-center gap-2 text-xs text-ink-muted">
                 <svg width="18" height="6" aria-hidden>
-                  <line x1="0" y1="3" x2="18" y2="3" stroke={RELATION_COLOR[r]} strokeWidth="1.5" strokeDasharray={r === 'contradicts' ? '4 3' : r === 'hypothesized' ? '2 3' : undefined} />
+                  <line
+                    x1="0"
+                    y1="3"
+                    x2="18"
+                    y2="3"
+                    stroke={RELATION_COLOR[r]}
+                    strokeWidth="1.5"
+                    strokeDasharray={r === 'contradicts' ? '4 3' : r === 'hypothesized' ? '2 3' : undefined}
+                  />
                 </svg>
                 {RELATION_LABEL[r]}
               </li>

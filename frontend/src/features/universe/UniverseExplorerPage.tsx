@@ -34,11 +34,26 @@ function toggle<T>(set: ReadonlySet<T>, value: T): Set<T> {
   return next;
 }
 
-function CheckRow({ checked, onChange, label, swatch, count }: { checked: boolean; onChange: () => void; label: string; swatch?: React.ReactNode; count?: number }) {
+function CheckRow({
+  checked,
+  onChange,
+  label,
+  swatch,
+  count,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+  swatch?: React.ReactNode;
+  count?: number;
+}) {
   return (
     <label className="flex h-7 cursor-pointer items-center gap-2.5 rounded px-1.5 text-xs text-ink-muted hover:bg-raised/50 hover:text-ink">
       <input type="checkbox" checked={checked} onChange={onChange} className="peer sr-only" />
-      <span aria-hidden className="grid h-3.5 w-3.5 place-items-center rounded-[3px] border border-line-strong peer-checked:border-cyan/70 peer-checked:bg-cyan/15 peer-focus-visible:ring-2 peer-focus-visible:ring-cyan/40">
+      <span
+        aria-hidden
+        className="grid h-3.5 w-3.5 place-items-center rounded-[3px] border border-line-strong peer-checked:border-cyan/70 peer-checked:bg-cyan/15 peer-focus-visible:ring-2 peer-focus-visible:ring-cyan/40"
+      >
         {checked && <span className="h-1.5 w-1.5 rounded-[1px] bg-cyan" />}
       </span>
       {swatch}
@@ -95,7 +110,7 @@ export default function UniverseExplorerPage() {
     }
   }, [selectedId]);
 
-  const selectedNode = selectedId ? nodeById.get(selectedId) ?? null : null;
+  const selectedNode = selectedId ? (nodeById.get(selectedId) ?? null) : null;
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return q ? sampleGraph.nodes.filter((n) => n.label.toLowerCase().includes(q)).slice(0, 8) : [];
@@ -116,7 +131,14 @@ export default function UniverseExplorerPage() {
         </label>
         <div className="relative">
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
-          <Input id="universe-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the graph…" className="h-8 pl-8 text-xs" autoComplete="off" />
+          <Input
+            id="universe-search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search the graph…"
+            className="h-8 pl-8 text-xs"
+            autoComplete="off"
+          />
           {query && (
             <button aria-label="Clear search" onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink">
               <X size={13} />
@@ -128,7 +150,10 @@ export default function UniverseExplorerPage() {
             {results.length === 0 && <li className="px-1.5 py-1 text-xs text-ink-faint">No nodes match.</li>}
             {results.map((n) => (
               <li key={n.id}>
-                <button onClick={() => selectAndFocus(n.id)} className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs text-ink-muted hover:bg-raised hover:text-ink">
+                <button
+                  onClick={() => selectAndFocus(n.id)}
+                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs text-ink-muted hover:bg-raised hover:text-ink"
+                >
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: clusterById[n.cluster].color }} />
                   <span className="flex-1 truncate">{n.label}</span>
                   <span className="text-2xs text-ink-faint">{NODE_KIND_LABEL[n.kind]}</span>
@@ -146,7 +171,11 @@ export default function UniverseExplorerPage() {
           <ul>
             {sampleGraph.clusters.map((c) => (
               <li key={c.id} className="group flex items-center">
-                <button onClick={() => graphRef.current?.focusCluster(c.id)} className="flex h-7 flex-1 items-center gap-2.5 rounded px-1.5 text-left text-xs text-ink-muted hover:bg-raised/50 hover:text-ink" title={`Focus ${c.label}`}>
+                <button
+                  onClick={() => graphRef.current?.focusCluster(c.id)}
+                  className="flex h-7 flex-1 items-center gap-2.5 rounded px-1.5 text-left text-xs text-ink-muted hover:bg-raised/50 hover:text-ink"
+                  title={`Focus ${c.label}`}
+                >
                   <span className="h-2 w-2 rounded-full" style={{ background: c.color, opacity: hiddenClusters.has(c.id) ? 0.3 : 1 }} />
                   <span className={cn('flex-1 truncate', hiddenClusters.has(c.id) && 'line-through opacity-50')}>{c.label}</span>
                   <span className="font-mono text-2xs text-ink-faint">{sampleGraph.nodes.filter((n) => n.cluster === c.id).length}</span>
@@ -166,7 +195,13 @@ export default function UniverseExplorerPage() {
         <fieldset>
           <legend className="eyebrow mb-1.5 px-1.5">Node types</legend>
           {KINDS.map((k) => (
-            <CheckRow key={k} checked={!hiddenKinds.has(k)} onChange={() => setHiddenKinds((s) => toggle(s, k))} label={NODE_KIND_LABEL[k]} count={stats.byKind[k]} />
+            <CheckRow
+              key={k}
+              checked={!hiddenKinds.has(k)}
+              onChange={() => setHiddenKinds((s) => toggle(s, k))}
+              label={NODE_KIND_LABEL[k]}
+              count={stats.byKind[k]}
+            />
           ))}
         </fieldset>
         <fieldset>
@@ -220,7 +255,11 @@ export default function UniverseExplorerPage() {
               transition={{ duration: 0.22 }}
               className="absolute inset-y-0 left-0 z-20 w-[280px] border-r border-line bg-abyss shadow-panel"
             >
-              <button aria-label="Close filters" onClick={() => setFiltersOpen(false)} className="absolute right-2 top-2 z-10 rounded p-1 text-ink-faint hover:bg-raised">
+              <button
+                aria-label="Close filters"
+                onClick={() => setFiltersOpen(false)}
+                className="absolute right-2 top-2 z-10 rounded p-1 text-ink-faint hover:bg-raised"
+              >
                 <X size={14} />
               </button>
               <div className="h-full pt-6">{filterPanel}</div>
@@ -250,7 +289,11 @@ export default function UniverseExplorerPage() {
         <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
           <div className="pointer-events-auto flex items-center gap-2">
             {!wide && (
-              <button onClick={() => setFiltersOpen((v) => !v)} aria-expanded={filtersOpen} className="flex h-8 items-center gap-2 rounded-md border border-line bg-surface/90 px-2.5 text-xs text-ink-muted backdrop-blur hover:text-ink">
+              <button
+                onClick={() => setFiltersOpen((v) => !v)}
+                aria-expanded={filtersOpen}
+                className="flex h-8 items-center gap-2 rounded-md border border-line bg-surface/90 px-2.5 text-xs text-ink-muted backdrop-blur hover:text-ink"
+              >
                 <SlidersHorizontal size={13} /> Filters
                 {filtersActive > 0 && <span className="rounded bg-cyan/15 px-1 font-mono text-2xs text-cyan">{filtersActive}</span>}
               </button>
@@ -271,7 +314,12 @@ export default function UniverseExplorerPage() {
                 { value: 'none', label: 'None' },
               ]}
             />
-            <button onClick={() => setLegendOpen((v) => !v)} aria-pressed={legendOpen} aria-label="Toggle legend" className={cn('rounded p-1.5', legendOpen ? 'text-cyan' : 'text-ink-faint hover:text-ink')}>
+            <button
+              onClick={() => setLegendOpen((v) => !v)}
+              aria-pressed={legendOpen}
+              aria-label="Toggle legend"
+              className={cn('rounded p-1.5', legendOpen ? 'text-cyan' : 'text-ink-faint hover:text-ink')}
+            >
               <Layers size={14} />
             </button>
           </div>
@@ -282,7 +330,11 @@ export default function UniverseExplorerPage() {
           <button aria-label="Zoom in" onClick={() => graphRef.current?.zoomIn()} className="p-2 text-ink-muted hover:bg-raised hover:text-ink">
             <Plus size={15} />
           </button>
-          <button aria-label="Zoom out" onClick={() => graphRef.current?.zoomOut()} className="border-y border-line p-2 text-ink-muted hover:bg-raised hover:text-ink">
+          <button
+            aria-label="Zoom out"
+            onClick={() => graphRef.current?.zoomOut()}
+            className="border-y border-line p-2 text-ink-muted hover:bg-raised hover:text-ink"
+          >
             <Minus size={15} />
           </button>
           <button aria-label="Fit graph to view" onClick={() => graphRef.current?.fit()} className="p-2 text-ink-muted hover:bg-raised hover:text-ink">
@@ -292,7 +344,12 @@ export default function UniverseExplorerPage() {
 
         <AnimatePresence>
           {legendOpen && (
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="absolute bottom-3 left-16 hidden w-[300px] rounded-md border border-line bg-surface/90 p-3 backdrop-blur md:block">
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              className="absolute bottom-3 left-16 hidden w-[300px] rounded-md border border-line bg-surface/90 p-3 backdrop-blur md:block"
+            >
               <GraphLegend />
             </motion.div>
           )}

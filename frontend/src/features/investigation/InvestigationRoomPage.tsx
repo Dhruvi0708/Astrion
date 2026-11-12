@@ -26,7 +26,11 @@ const CLAIM_STATUS = {
 function ProvenanceChain({ complete }: { complete: number }) {
   const steps = ['Source', 'Document', 'Evidence span', 'Claim'];
   return (
-    <div className="flex items-center gap-1" aria-label={`Provenance: ${complete} of 4 links recorded`} title={steps.map((s, i) => `${i < complete ? '●' : '○'} ${s}`).join('  ')}>
+    <div
+      className="flex items-center gap-1"
+      aria-label={`Provenance: ${complete} of 4 links recorded`}
+      title={steps.map((s, i) => `${i < complete ? '●' : '○'} ${s}`).join('  ')}
+    >
       {steps.map((s, i) => (
         <span key={s} className="flex items-center gap-1">
           <span className={cn('h-1.5 w-1.5 rounded-full', i < complete ? 'bg-verified' : 'border border-ink-faint')} />
@@ -113,8 +117,8 @@ export default function InvestigationRoomPage() {
         description="Frame a research question, attach sources, and trace every claim back to the evidence that supports or contradicts it."
       />
       <Notice className="mt-5">
-        These investigations are hand-written samples that demonstrate the workspace. Agent-driven investigation — automated questioning, evidence retrieval and verification — is <strong className="font-medium text-ink">planned</strong> and not
-        running.
+        These investigations are hand-written samples that demonstrate the workspace. Agent-driven investigation — automated questioning, evidence retrieval and
+        verification — is <strong className="font-medium text-ink">planned</strong> and not running.
       </Notice>
 
       <div role="tablist" aria-label="Investigations" className="mt-6 flex flex-wrap gap-2">
@@ -124,7 +128,10 @@ export default function InvestigationRoomPage() {
             role="tab"
             aria-selected={i.id === inv.id}
             onClick={() => setParams({ i: i.id }, { replace: true })}
-            className={cn('rounded-md border px-3.5 py-2 text-left text-xs transition-colors', i.id === inv.id ? 'border-cyan/40 bg-cyan/[0.06] text-ink' : 'border-line text-ink-muted hover:border-line-strong hover:text-ink')}
+            className={cn(
+              'rounded-md border px-3.5 py-2 text-left text-xs transition-colors',
+              i.id === inv.id ? 'border-cyan/40 bg-cyan/[0.06] text-ink' : 'border-line text-ink-muted hover:border-line-strong hover:text-ink',
+            )}
           >
             <span className="block font-medium">{i.title}</span>
             <span className="text-2xs capitalize text-ink-faint">{i.status}</span>
@@ -186,7 +193,9 @@ export default function InvestigationRoomPage() {
               );
             })}
           </ul>
-          <p className="mt-2 border-t border-line px-2 pt-3 text-2xs leading-relaxed text-ink-faint">Real sources are registered on the Sources page. Linking them to investigations arrives with the investigation API.</p>
+          <p className="mt-2 border-t border-line px-2 pt-3 text-2xs leading-relaxed text-ink-faint">
+            Real sources are registered on the Sources page. Linking them to investigations arrives with the investigation API.
+          </p>
         </Panel>
 
         <Panel
@@ -224,7 +233,16 @@ export default function InvestigationRoomPage() {
               const planned = t.kind === 'planned';
               return (
                 <li key={t.id} className="relative flex gap-3">
-                  <span className={cn('relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full border bg-surface', planned ? 'border-dashed border-ink-faint text-ink-faint' : t.kind === 'challenge' ? 'border-conflict/50 text-conflict' : 'border-line-strong text-ink-muted')}>
+                  <span
+                    className={cn(
+                      'relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full border bg-surface',
+                      planned
+                        ? 'border-dashed border-ink-faint text-ink-faint'
+                        : t.kind === 'challenge'
+                          ? 'border-conflict/50 text-conflict'
+                          : 'border-line-strong text-ink-muted',
+                    )}
+                  >
                     <Icon size={12} />
                   </span>
                   <div className="min-w-0 pt-0.5">
@@ -246,7 +264,9 @@ export default function InvestigationRoomPage() {
           {inv.findings.map((f) => (
             <li key={f.id} className="rounded-lg border border-line bg-deep/50 p-4">
               <div className="flex items-center gap-1.5">
-                <Badge tone={f.status === 'conditional' ? 'hypothesis' : 'unverified'}>{f.status === 'draft' ? 'Draft' : f.status === 'conditional' ? 'Conditional' : 'Unverified'}</Badge>
+                <Badge tone={f.status === 'conditional' ? 'hypothesis' : 'unverified'}>
+                  {f.status === 'draft' ? 'Draft' : f.status === 'conditional' ? 'Conditional' : 'Unverified'}
+                </Badge>
               </div>
               <p className="mt-2.5 text-[0.85rem] leading-relaxed text-ink">{f.text}</p>
               <p className="mt-3 text-2xs text-ink-faint">

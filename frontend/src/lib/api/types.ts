@@ -31,6 +31,32 @@ export interface DependencyHealth {
   detail: string | null;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  display_name: string;
+  created_at: ISODateTime;
+}
+
+export interface AuthTokens {
+  access_token: string;
+  token_type: 'bearer';
+  /** Seconds until the access token expires. */
+  expires_in: number;
+  user: User;
+}
+
+export interface RegisterInput {
+  email: string;
+  password: string;
+  display_name: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
 export type WorkspaceStatus = 'active' | 'archived';
 
 export interface Workspace {
@@ -91,6 +117,9 @@ export interface SourceDocument {
   byte_size: number | null;
   content_hash: string | null;
   storage_uri: string | null;
+  original_filename: string | null;
+  storage_backend: string | null;
+  has_file: boolean;
   processing_status: DocumentProcessingStatus;
   created_at: ISODateTime;
   updated_at: ISODateTime;

@@ -41,10 +41,23 @@ export function CreateWorkspaceDialog() {
 
   const err = mutation.error;
   return (
-    <Dialog open={open} onClose={close} title="Create workspace" description="A workspace groups the sources, graph and investigations for one line of inquiry.">
+    <Dialog
+      open={open}
+      onClose={close}
+      title="Create workspace"
+      description="A workspace groups the sources, graph and investigations for one line of inquiry."
+    >
       <form onSubmit={submit} className="space-y-4" noValidate>
         <Field label="Name" htmlFor="ws-name" required error={nameError}>
-          <Input id="ws-name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched(true)} aria-invalid={Boolean(nameError)} placeholder="e.g. Coastal resilience review" />
+          <Input
+            id="ws-name"
+            value={name}
+            maxLength={120}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => setTouched(true)}
+            aria-invalid={Boolean(nameError)}
+            placeholder="e.g. Coastal resilience review"
+          />
         </Field>
         <Field label="Description" htmlFor="ws-desc" hint="Optional. What question or domain does this workspace cover?">
           <Textarea id="ws-desc" value={description} maxLength={2000} onChange={(e) => setDescription(e.target.value)} />

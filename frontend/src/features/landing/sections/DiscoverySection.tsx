@@ -17,8 +17,8 @@ export function DiscoverySection() {
       <div className="mx-auto max-w-[1240px] px-5 md:px-8">
         <SectionIntro index="05" eyebrow="Discovery" title="Where separate evidence becomes something new." id="discovery-title">
           <p>
-            When evidence from unrelated sources meets in the graph, patterns emerge: relationships nobody stated, contradictions nobody noticed, regions
-            nobody has studied, and hypotheses worth testing. Each stays traceable to its evidence — and clearly labelled until verified.
+            When evidence from unrelated sources meets in the graph, patterns emerge: relationships nobody stated, contradictions nobody noticed, regions nobody
+            has studied, and hypotheses worth testing. Each stays traceable to its evidence — and clearly labelled until verified.
           </p>
         </SectionIntro>
 
@@ -57,7 +57,14 @@ export function DiscoverySection() {
               </div>
             </div>
             <AnimatePresence mode="wait">
-              <motion.div key={active.id} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="border-t border-line p-5 lg:border-l lg:border-t-0">
+              <motion.div
+                key={active.id}
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="border-t border-line p-5 lg:border-l lg:border-t-0"
+              >
                 <div className="flex flex-wrap gap-1.5">
                   <Badge tone={meta.tone}>{meta.label}</Badge>
                   <Badge tone={status.tone} title={status.description}>
@@ -82,7 +89,9 @@ export function DiscoverySection() {
                     })}
                   </ul>
                 ) : (
-                  <p className="mt-2 rounded-md border border-dashed border-gap/40 px-3 py-2 text-xs text-gap">No evidence exists for this region — that absence is the discovery.</p>
+                  <p className="mt-2 rounded-md border border-dashed border-gap/40 px-3 py-2 text-xs text-gap">
+                    No evidence exists for this region — that absence is the discovery.
+                  </p>
                 )}
                 <p className="eyebrow mt-5">Next step</p>
                 <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">{active.nextStep}</p>

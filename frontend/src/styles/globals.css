@@ -7,36 +7,53 @@
    Values are RGB channels so Tailwind alpha modifiers work.
 --------------------------------------------------------------------------- */
 :root {
-  --void: 4 6 11;          /* page background, near-black */
-  --abyss: 7 10 18;        /* app background */
-  --deep: 10 14 26;        /* recessed regions, canvases */
-  --surface: 14 19 33;     /* panels */
-  --raised: 20 27 45;      /* hover / raised controls */
-  --line: 28 37 61;        /* default border, blue-grey */
+  --void: 4 6 11; /* page background, near-black */
+  --abyss: 7 10 18; /* app background */
+  --deep: 10 14 26; /* recessed regions, canvases */
+  --surface: 14 19 33; /* panels */
+  --raised: 20 27 45; /* hover / raised controls */
+  --line: 28 37 61; /* default border, blue-grey */
   --line-strong: 44 56 88; /* emphasised border */
-  --ink: 230 236 246;      /* primary text, soft white */
-  --ink-muted: 139 151 173;/* secondary text, cool grey */
+  --ink: 230 236 246; /* primary text, soft white */
+  --ink-muted: 139 151 173; /* secondary text, cool grey */
   --ink-faint: 90 102 128; /* tertiary text */
-  --cyan: 79 227 240;      /* primary accent, electric cyan */
+  --cyan: 79 227 240; /* primary accent, electric cyan */
   --cyan-deep: 32 150 168; /* pressed / low-emphasis cyan */
-  --violet: 157 140 255;   /* secondary accent, cool violet */
-  --verified: 94 224 165;  /* verified evidence */
-  --caution: 240 186 104;  /* sample / illustrative */
+  --violet: 157 140 255; /* secondary accent, cool violet */
+  --verified: 94 224 165; /* verified evidence */
+  --caution: 240 186 104; /* sample / illustrative */
   --conflict: 255 122 138; /* contradiction */
-  --gap: 122 162 255;      /* knowledge gap */
+  --gap: 122 162 255; /* knowledge gap */
   color-scheme: dark;
 }
 
 @layer base {
-  html { -webkit-text-size-adjust: 100%; }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-void font-sans text-ink antialiased;
     font-feature-settings: 'cv11', 'ss01', 'ss03';
   }
-  h1, h2, h3, h4 { @apply font-display tracking-tight; }
-  ::selection { background: rgb(var(--cyan) / 0.25); color: rgb(var(--ink)); }
-  :focus-visible { outline: 2px solid rgb(var(--cyan) / 0.8); outline-offset: 2px; border-radius: 4px; }
-  * { scrollbar-width: thin; scrollbar-color: rgb(var(--line-strong)) transparent; }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display tracking-tight;
+  }
+  ::selection {
+    background: rgb(var(--cyan) / 0.25);
+    color: rgb(var(--ink));
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--cyan) / 0.8);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line-strong)) transparent;
+  }
 }
 
 @layer components {
@@ -47,18 +64,27 @@
     @apply font-display text-2xs font-medium uppercase tracking-[0.18em] text-ink-faint;
   }
   .hairline-grid {
-    background-image:
-      linear-gradient(rgb(var(--line) / 0.35) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--line) / 0.35) 1px, transparent 1px);
+    background-image: linear-gradient(rgb(var(--line) / 0.35) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--line) / 0.35) 1px, transparent 1px);
     background-size: 48px 48px;
   }
-  .text-balance { text-wrap: balance; }
+  .text-balance {
+    text-wrap: balance;
+  }
 }
 
 @keyframes dash {
-  to { stroke-dashoffset: -166; }
+  to {
+    stroke-dashoffset: -166;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
 }

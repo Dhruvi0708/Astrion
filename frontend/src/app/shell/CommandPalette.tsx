@@ -100,7 +100,13 @@ export function CommandPalette() {
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[90] flex items-start justify-center p-4 pt-[14vh]">
-          <motion.div className="fixed inset-0 bg-void/75 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)} />
+          <motion.div
+            className="fixed inset-0 bg-void/75 backdrop-blur-[2px]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setOpen(false)}
+          />
           <motion.div
             role="dialog"
             aria-modal="true"

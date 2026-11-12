@@ -1,5 +1,7 @@
 # Frontend Architecture
 
+Tooling: ESLint 9 (typescript-eslint, react-hooks), Prettier 3, Vitest, Playwright 1.49.
+
 Stack: React 18.3, TypeScript 5.6 (strict), Vite 5.4, Tailwind CSS 3.4.15 (locked), Framer Motion 11, Three.js 0.170 + React Three Fiber 8 + Drei 9, d3-force 3, Zustand 5, TanStack Query 5, React Router 6.28, lucide-react. All versions pinned exactly in `package.json`.
 
 ## Folder structure
@@ -20,6 +22,7 @@ frontend/src
 ├── design/tokens.ts         Token mirror for Canvas / WebGL
 ├── data/sample/             Labelled sample datasets (graph, agents, discoveries, investigations)
 ├── features/
+│   ├── auth/                store, RequireAuth, Login/Register pages
 │   ├── landing/             LandingPage, hero (R3F scene + SVG fallback), sections
 │   ├── universe/            GraphCanvas engine, layout, inspector, legend, explorer page
 │   ├── overview/ investigation/ agents/ discovery/ simulation/ sources/ settings/ workspaces/
@@ -35,7 +38,8 @@ frontend/src
 
 | Path | Environment |
 |---|---|
-| `/` | Landing |
+| `/` | Landing (public) |
+| `/login?next=&reason=expired\|offline`, `/register` | Sign-in screens (public) |
 | `/app` → `/app/overview` | Overview |
 | `/app/universe?node=<id>` | Universe Explorer (deep-linkable selection) |
 | `/app/investigations?i=<id>` | Investigation Room |
@@ -46,10 +50,11 @@ frontend/src
 | `/app/settings` | Settings |
 | `*` | 404 |
 
-Each environment is a lazy chunk wrapped in the shell's `Suspense` and a per-route `ErrorBoundary` (keyed by path, so a crash in one environment never takes down navigation).
+Everything under `/app` is wrapped in `RequireAuth`: while the session is being restored it shows "Restoring session"; anonymous or expired visitors are redirected to `/login` with a validated `next`. Each environment is a lazy chunk wrapped in the shell's `Suspense` and a per-route `ErrorBoundary` (keyed by path, so a crash in one environment never takes down navigation).
 
 ## State
 
+- **Session** — `features/auth/store.ts` (Zustand). Access token in memory only; refresh token is an httpOnly cookie. Bootstrap via `/auth/refresh`, proactive refresh before expiry, single-flight refresh on `401`, `expired` status on failure. Sign-out clears the query cache and active workspace. See [SECURITY_AND_AUTH.md](SECURITY_AND_AUTH.md#frontend-session-handling).
 - **Server state** — TanStack Query only (`lib/api/hooks.ts`). Query keys are centralised. Retries happen once and only for outages (`ApiError.isUnavailable`), never for 4xx.
 - **UI state** — Zustand `useUi` (command palette, mobile nav, create-workspace dialog).
 - **Preferences** — Zustand `usePreferences` persisted to localStorage with an in-memory fallback (active workspace, sidebar collapse, reduce motion, graph label density).
@@ -57,7 +62,7 @@ Each environment is a lazy chunk wrapped in the shell's `Suspense` and a per-rou
 
 ## API client
 
-`request<T>()` wraps `fetch`, attaches JSON headers, parses the ASTRION error envelope into `ApiError { status, code, kind, details, requestId }`. A network failure, a bare non-envelope 5xx (e.g. dev proxy without backend) or an HTML success response are treated as **unavailable**, which the UI renders as "Backend unavailable — Retry" instead of a generic error.
+`request<T>()` wraps `fetch`, attaches the Bearer token (via `configureAuth` handlers registered by the auth store, so the client doesn't import the store), retries once after a silent refresh on `401`, attaches JSON headers, parses the ASTRION error envelope into `ApiError { status, code, kind, details, requestId }`. A network failure, a bare non-envelope 5xx (e.g. dev proxy without backend) or an HTML success response are treated as **unavailable**, which the UI renders as "Backend unavailable — Retry" instead of a generic error.
 
 ## 3D hero (`features/landing/hero`)
 

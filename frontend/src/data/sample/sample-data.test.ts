@@ -25,7 +25,10 @@ describe('sample graph integrity', () => {
 
   it('every claim cites at least one source', () => {
     for (const claim of sampleGraph.nodes.filter((n) => n.kind === 'claim')) {
-      expect(sampleGraph.edges.some((e) => e.source === claim.id && e.kind === 'mentions'), claim.id).toBe(true);
+      expect(
+        sampleGraph.edges.some((e) => e.source === claim.id && e.kind === 'mentions'),
+        claim.id,
+      ).toBe(true);
     }
   });
 

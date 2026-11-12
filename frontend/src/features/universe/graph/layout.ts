@@ -66,7 +66,10 @@ export function computeLayout(graph: KnowledgeGraph): GraphLayout {
         .distance(70)
         .strength(0.18),
     )
-    .force('collide', forceCollide<SimNode>().radius((d) => 14 + d.weight * 4))
+    .force(
+      'collide',
+      forceCollide<SimNode>().radius((d) => 14 + d.weight * 4),
+    )
     .force('x', forceX<SimNode>((d) => clusterCentres.get(d.cluster)!.x).strength(0.22))
     .force('y', forceY<SimNode>((d) => clusterCentres.get(d.cluster)!.y).strength(0.22))
     .stop();

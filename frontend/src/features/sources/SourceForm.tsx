@@ -38,8 +38,8 @@ export function SourceForm({ workspaceId, onCreated, onCancel }: { workspaceId: 
   const [touched, setTouched] = useState(false);
 
   const server = fieldErrors(mutation.error);
-  const titleError = touched && !title.trim() ? 'A title is required.' : server.title ?? null;
-  const uriError = uri && !/^https?:\/\/\S+$/i.test(uri) ? 'Use a full http(s) URL.' : server.uri ?? null;
+  const titleError = touched && !title.trim() ? 'A title is required.' : (server.title ?? null);
+  const uriError = uri && !/^https?:\/\/\S+$/i.test(uri) ? 'Use a full http(s) URL.' : (server.uri ?? null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -69,7 +69,14 @@ export function SourceForm({ workspaceId, onCreated, onCancel }: { workspaceId: 
   return (
     <form onSubmit={submit} noValidate className="space-y-4">
       <Field label="Title" htmlFor="src-title" required error={titleError}>
-        <Input id="src-title" value={title} maxLength={500} onChange={(e) => setTitle(e.target.value)} onBlur={() => setTouched(true)} aria-invalid={Boolean(titleError)} />
+        <Input
+          id="src-title"
+          value={title}
+          maxLength={500}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => setTouched(true)}
+          aria-invalid={Boolean(titleError)}
+        />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Type" htmlFor="src-type">

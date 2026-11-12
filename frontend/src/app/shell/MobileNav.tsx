@@ -24,7 +24,13 @@ export function MobileNav() {
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[70] lg:hidden">
-          <motion.div className="absolute inset-0 bg-void/80" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)} />
+          <motion.div
+            className="absolute inset-0 bg-void/80"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setOpen(false)}
+          />
           <motion.aside
             role="dialog"
             aria-modal="true"

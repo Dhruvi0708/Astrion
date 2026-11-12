@@ -24,7 +24,15 @@ const FRAGMENTS: Fragment[] = [
 ];
 
 const LINKS: [number, number][] = [
-  [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 0], [0, 3], [1, 5],
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 4],
+  [4, 5],
+  [5, 6],
+  [6, 0],
+  [0, 3],
+  [1, 5],
 ];
 
 function FragmentCard({ f, progress }: { f: Fragment; progress: MotionValue<number> }) {
@@ -63,8 +71,8 @@ export function ProblemSection() {
         <div>
           <SectionIntro index="01" eyebrow="The problem" title="Valuable knowledge lives in fragments." id="problem-title">
             <p>
-              Research papers, datasets, reports and notes each hold part of the picture. They rarely reference each other, they use different
-              vocabularies, and the relationships between them stay invisible — so contradictions go unnoticed and insights wait to be found.
+              Research papers, datasets, reports and notes each hold part of the picture. They rarely reference each other, they use different vocabularies, and
+              the relationships between them stay invisible — so contradictions go unnoticed and insights wait to be found.
             </p>
           </SectionIntro>
           <ul className="mt-10 space-y-5">
@@ -94,7 +102,12 @@ export function ProblemSection() {
         <div ref={ref} className="relative">
           <div className="panel relative overflow-hidden bg-deep/60">
             <div className="hairline-grid absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" />
-            <svg viewBox="0 0 600 460" className="relative block w-full" role="img" aria-label="Isolated documents gradually connect into a single knowledge network as you scroll.">
+            <svg
+              viewBox="0 0 600 460"
+              className="relative block w-full"
+              role="img"
+              aria-label="Isolated documents gradually connect into a single knowledge network as you scroll."
+            >
               <g>
                 {LINKS.map(([a, b], i) => (
                   <motion.line
@@ -111,14 +124,32 @@ export function ProblemSection() {
                   />
                 ))}
                 {FRAGMENTS.map((f, i) => (
-                  <motion.line key={`h${i}`} x1={HUB[0]} y1={HUB[1]} x2={f.to[0]} y2={f.to[1]} stroke="#4fe3f0" strokeOpacity={0.22} strokeWidth={0.8} style={{ pathLength: linkLength }} />
+                  <motion.line
+                    key={`h${i}`}
+                    x1={HUB[0]}
+                    y1={HUB[1]}
+                    x2={f.to[0]}
+                    y2={f.to[1]}
+                    stroke="#4fe3f0"
+                    strokeOpacity={0.22}
+                    strokeWidth={0.8}
+                    style={{ pathLength: linkLength }}
+                  />
                 ))}
               </g>
               <motion.g style={{ opacity: hubOpacity, scale: hubScale, transformBox: 'fill-box', transformOrigin: 'center' }}>
                 <circle cx={HUB[0]} cy={HUB[1]} r={40} fill="#4fe3f0" fillOpacity={0.06} />
                 <circle cx={HUB[0]} cy={HUB[1]} r={26} fill="none" stroke="#4fe3f0" strokeOpacity={0.5} />
                 <circle cx={HUB[0]} cy={HUB[1]} r={7} fill="#4fe3f0" />
-                <text x={HUB[0]} y={HUB[1] + 46} textAnchor="middle" fontSize={8.5} letterSpacing={2} fontFamily="Space Grotesk Variable, sans-serif" fill="#4fe3f0">
+                <text
+                  x={HUB[0]}
+                  y={HUB[1] + 46}
+                  textAnchor="middle"
+                  fontSize={8.5}
+                  letterSpacing={2}
+                  fontFamily="Space Grotesk Variable, sans-serif"
+                  fill="#4fe3f0"
+                >
                   CONNECTED KNOWLEDGE
                 </text>
               </motion.g>

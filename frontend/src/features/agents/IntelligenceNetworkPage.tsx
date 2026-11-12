@@ -42,7 +42,13 @@ function HandoffMatrix() {
               {AGENTS.map((to) => {
                 const n = counts.get(`${from.role}>${to.role}`) ?? 0;
                 return (
-                  <td key={to.role} className={cn('h-9 rounded text-center font-mono', n ? 'bg-cyan/[0.12] text-cyan' : from.role === to.role ? 'bg-transparent text-ink-faint/40' : 'bg-deep text-ink-faint')}>
+                  <td
+                    key={to.role}
+                    className={cn(
+                      'h-9 rounded text-center font-mono',
+                      n ? 'bg-cyan/[0.12] text-cyan' : from.role === to.role ? 'bg-transparent text-ink-faint/40' : 'bg-deep text-ink-faint',
+                    )}
+                  >
                     {from.role === to.role ? '—' : n || '·'}
                   </td>
                 );
@@ -71,7 +77,8 @@ export default function IntelligenceNetworkPage() {
         description="The interface for ASTRION’s multi-agent investigation system: roles, handoffs, execution history and verification status."
       />
       <Notice tone="planned" className="mt-5">
-        No agents are deployed in Phase 1. Role definitions describe the planned design; the walkthrough is a hand-written sample. Agent executions will be recorded in the <code className="font-mono text-ink">agent_executions</code> table, which already exists in the database schema.
+        No agents are deployed in Phase 1. Role definitions describe the planned design; the walkthrough is a hand-written sample. Agent executions will be
+        recorded in the <code className="font-mono text-ink">agent_executions</code> table, which already exists in the database schema.
       </Notice>
 
       <section aria-labelledby="roles-title" className="mt-8">
@@ -123,7 +130,9 @@ export default function IntelligenceNetworkPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-4 border-t border-line pt-3 text-2xs leading-relaxed text-ink-faint">Only a Verifier, with evidence attached, can move an item to Verified. AI-generated hypotheses always start as Unverified.</p>
+          <p className="mt-4 border-t border-line pt-3 text-2xs leading-relaxed text-ink-faint">
+            Only a Verifier, with evidence attached, can move an item to Verified. AI-generated hypotheses always start as Unverified.
+          </p>
         </Panel>
       </div>
 

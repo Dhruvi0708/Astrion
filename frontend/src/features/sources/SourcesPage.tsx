@@ -12,6 +12,8 @@ import { useSources } from '@/lib/api/hooks';
 import { cn } from '@/lib/cn';
 import { formatDate, pluralize } from '@/lib/format';
 import { useUi } from '@/stores/ui';
+import { ApiError } from '@/lib/api/client';
+import { DataStatusBadge } from './DataStatusBadge';
 import { SourceDetail } from './SourceDetail';
 import { SourceForm, TYPE_LABEL } from './SourceForm';
 
@@ -47,7 +49,12 @@ export default function SourcesPage() {
   const selected = items.find((s) => s.id === selectedId) ?? null;
 
   let body: React.ReactNode;
-  if (ws.isLoading) body = <div className="p-4"><SkeletonRows rows={4} /></div>;
+  if (ws.isLoading)
+    body = (
+      <div className="p-4">
+        <SkeletonRows rows={4} />
+      </div>
+    );
   else if (ws.isError) body = <ErrorState error={ws.error} onRetry={() => ws.refetch()} />;
   else if (!ws.active)
     body = (
@@ -62,7 +69,12 @@ export default function SourcesPage() {
         }
       />
     );
-  else if (sources.isLoading) body = <div className="p-4"><SkeletonRows rows={4} /></div>;
+  else if (sources.isLoading)
+    body = (
+      <div className="p-4">
+        <SkeletonRows rows={4} />
+      </div>
+    );
   else if (sources.isError) body = <ErrorState error={sources.error} onRetry={() => sources.refetch()} />;
   else if (!sources.data?.items.length)
     body = (
@@ -83,11 +95,21 @@ export default function SourcesPage() {
         <table className="w-full min-w-[520px] text-left text-xs">
           <thead>
             <tr className="border-b border-line text-2xs uppercase tracking-[0.1em] text-ink-faint">
-              <th scope="col" className="px-4 py-2.5 font-normal">Title</th>
-              <th scope="col" className="px-4 py-2.5 font-normal">Type</th>
-              <th scope="col" className="hidden px-4 py-2.5 font-normal 2xl:table-cell">Authors</th>
-              <th scope="col" className="px-4 py-2.5 font-normal">Documents</th>
-              <th scope="col" className="px-4 py-2.5 font-normal">Registered</th>
+              <th scope="col" className="px-4 py-2.5 font-normal">
+                Title
+              </th>
+              <th scope="col" className="px-4 py-2.5 font-normal">
+                Type
+              </th>
+              <th scope="col" className="hidden px-4 py-2.5 font-normal 2xl:table-cell">
+                Authors
+              </th>
+              <th scope="col" className="px-4 py-2.5 font-normal">
+                Documents
+              </th>
+              <th scope="col" className="px-4 py-2.5 font-normal">
+                Registered
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -117,7 +139,12 @@ export default function SourcesPage() {
       <PageHeader
         eyebrow="Sources"
         title="Sources & documents"
-        badges={<Badge tone="live" dot>Live data</Badge>}
+        badges={
+          <DataStatusBadge
+            loading={ws.isLoading || sources.isLoading}
+            queryFailed={(ws.isError && (ws.error as ApiError | null)?.isUnavailable) || (sources.isError && (sources.error as ApiError | null)?.isUnavailable)}
+          />
+        }
         description="Register the origin of every piece of knowledge. Sources hold bibliographic provenance; documents are the concrete artifacts that belong to them."
         actions={
           <Button variant="primary" onClick={() => setFormOpen(true)} disabled={!ws.active}>
@@ -154,7 +181,13 @@ export default function SourcesPage() {
         </aside>
       </div>
 
-      <Dialog open={formOpen && Boolean(ws.active)} onClose={() => setFormOpen(false)} title="Register source" description={ws.active ? `Adds a source to “${ws.active.name}”.` : undefined} className="max-w-xl">
+      <Dialog
+        open={formOpen && Boolean(ws.active)}
+        onClose={() => setFormOpen(false)}
+        title="Register source"
+        description={ws.active ? `Adds a source to “${ws.active.name}”.` : undefined}
+        className="max-w-xl"
+      >
         {ws.active && (
           <SourceForm
             workspaceId={ws.active.id}

@@ -12,13 +12,16 @@
                 │  HTTPS  /api/v1/*  (JSON, error envelope, X-Request-ID)
  ┌──────────────▼───────────────────────────────────────────────────────┐
  │ FastAPI                                                              │
- │  middleware: request-id + structured access log, CORS                │
- │  api/v1 ── routers (health, workspaces, sources)                     │
- │  services ── use-cases (no HTTP concerns)                            │
- │  models ── SQLAlchemy 2 ORM          graph ── GraphClient protocol   │
- │  ai ── LLMProvider / EmbeddingProvider protocols                     │
+ │  middleware: request-id + structured access log, CORS (credentials)  │
+ │  api/v1 ── routers (health, auth, workspaces, sources/documents)     │
+ │  deps ── get_current_user: Bearer JWT → live session → user           │
+ │  services ── owner-scoped use-cases (no HTTP concerns)                │
+ │  models ── SQLAlchemy 2 ORM     graph ── client + GraphRepository     │
+ │  storage ── StorageBackend (local | S3)                               │
+ │  ai ── LLMProvider / EmbeddingProvider (no silent fallback)           │
  └───────┬───────────────────────────────┬──────────────────┬───────────┘
          │ psycopg 3                     │ bolt              │ HTTPS (future)
+         │   + files → local disk / S3   │                   │
  ┌───────▼────────┐             ┌────────▼───────┐   ┌──────▼──────────────┐
  │ PostgreSQL     │             │ Neo4j          │   │ Anthropic (Claude)   │
  │ app + metadata │◄─graph_key─►│ graph topology │   │ Voyage (embeddings)  │
@@ -41,21 +44,25 @@ The two are joined by `graph_key`: every Neo4j node/relationship has a `key` pro
 |---|---|
 | `app/core/config.py` | Typed settings from env (`pydantic-settings`); secrets as `SecretStr`. |
 | `app/core/logging.py`, `middleware.py` | JSON logs with request id; access log per request; `X-Request-ID` echoed. |
+| `app/core/security.py` | Argon2id hashing, JWT issue/verify (HS256 pinned), refresh-token generation and hashing. |
+| `app/services/auth.py` | Register, login (rate-limited, timing-equalised), refresh rotation with reuse detection, logout / logout-all, session resolution. |
+| `app/storage` | `StorageBackend` protocol, `LocalStorage`, `S3Storage`, upload validation. See [STORAGE.md](STORAGE.md). |
 | `app/core/errors.py` | `AppError` hierarchy and handlers producing one error envelope for validation, HTTP, DB and unhandled errors. |
 | `app/db` | Declarative base with naming conventions, UUID PKs, timestamps; engine/session factory. |
 | `app/models` | ORM models (see DATABASE_SCHEMA.md). |
 | `app/schemas` | Pydantic request/response models. |
 | `app/services` | Use-cases; raise `AppError`s; no FastAPI imports. |
 | `app/api/v1` | Thin routers; versioned under `/api/v1`. |
-| `app/graph` | `GraphClient` protocol, `Neo4jGraphClient`, `UnconfiguredGraphClient`; label/relationship vocabulary. |
-| `app/ai` | `LLMProvider` (Claude via the Anthropic SDK, adaptive thinking, streaming, server-side fallback) and `EmbeddingProvider` (Voyage over HTTP), plus `Null*` providers that fail explicitly when unconfigured. |
+| `app/graph` | `Neo4jGraphClient` (driver, timeouts, health), `GraphRepository` (CRUD, constraints, transactions), vocabulary and PostgreSQL ↔ Neo4j key mapping. See [NEO4J.md](NEO4J.md). |
+| `app/ai` | `LLMProvider` (Claude via the Anthropic SDK, adaptive thinking, streaming, **no silent fallback**, typed errors, recorded identity) and `EmbeddingProvider` (Voyage). See [AI_PROVIDERS.md](AI_PROVIDERS.md). |
 
 ## Request lifecycle
 
 1. `RequestContextMiddleware` assigns/propagates a request id (ContextVar) and times the request.
-2. Router validates input (Pydantic) → service performs the use-case in a session from `get_db`.
-3. Errors become `{"error": {code, message, details, request_id}}` with the right status (404, 409, 422, 503, 500).
-4. Access log line: `{"msg":"request","method","path","status","duration_ms","request_id"}`.
+2. `get_current_user` verifies the Bearer token and that its session is still live (protected routes).
+3. Router validates input (Pydantic) → service performs the owner-scoped use-case in a session from `get_db`.
+4. Errors become `{"error": {code, message, details, request_id}}` with the right status (404, 409, 422, 503, 500).
+5. Access log line: `{"msg":"request","method","path","status","duration_ms","request_id"}`.
 
 ## Health model
 
@@ -70,15 +77,13 @@ Dependency health endpoints always return 200 with a status field so dashboards 
 ## AI integration (foundation only)
 
 - Credentials are read from server environment variables only. The frontend never sees them.
-- The Claude provider uses model `claude-opus-5-5` (configurable), adaptive thinking with an explicit `effort`, streams responses, checks `stop_reason == "refusal"`, and opts into the server-side fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`).
+- The Claude provider uses model `claude-opus-5-5` (configurable), adaptive thinking with an explicit `effort`, and streams responses. Phase 1.5 **removed** Anthropic's server-side `fallbacks`; fallback is now opt-in, refusal-only and recorded. Refusals raise `ProviderRefusalError`.
 - Nothing in Phase 1 calls either provider; they exist so Phase 2 extraction can depend on interfaces, not SDKs.
 
 ## Frontend
 
 See FRONTEND_ARCHITECTURE.md. Key decisions: route-level code splitting; the Three.js bundle is loaded only by the hero; graph rendering uses Canvas 2D with a precomputed d3-force layout and an on-demand animation loop.
 
-## Security notes (Phase 1)
+## Security
 
-- No authentication yet — the API must not be exposed publicly in this state.
-- CORS restricted to configured origins; no credentials.
-- No secrets in the client bundle; `.env` files are git-ignored.
+Authentication, authorization, CSRF protection and session handling are described in [SECURITY_AND_AUTH.md](SECURITY_AND_AUTH.md). CORS allows credentials only for `ASTRION_CORS_ORIGINS`; no secrets are in the client bundle; `.env` files are git-ignored.

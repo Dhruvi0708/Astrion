@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary';
+import { RequireAuth } from '@/features/auth/RequireAuth';
 import { AppShell } from './shell/AppShell';
 import { NotFoundPage } from './NotFoundPage';
 
@@ -14,6 +15,14 @@ const DiscoveryLabPage = lazy(() => import('@/features/discovery/DiscoveryLabPag
 const SimulationLabPage = lazy(() => import('@/features/simulation/SimulationLabPage'));
 const SourcesPage = lazy(() => import('@/features/sources/SourcesPage'));
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
+const LoginPage = lazy(() => import('@/features/auth/AuthPages').then((m) => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('@/features/auth/AuthPages').then((m) => ({ default: m.RegisterPage })));
+
+const authScreen = (node: React.ReactNode) => (
+  <ErrorBoundary region="Sign-in">
+    <Suspense fallback={<div className="min-h-screen bg-void" />}>{node}</Suspense>
+  </ErrorBoundary>
+);
 
 export const routes: RouteObject[] = [
   {
@@ -26,9 +35,15 @@ export const routes: RouteObject[] = [
       </ErrorBoundary>
     ),
   },
+  { path: '/login', element: authScreen(<LoginPage />) },
+  { path: '/register', element: authScreen(<RegisterPage />) },
   {
     path: '/app',
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Navigate to="/app/overview" replace /> },
       { path: 'overview', element: <OverviewPage /> },

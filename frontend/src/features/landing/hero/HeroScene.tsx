@@ -102,7 +102,14 @@ function KnowledgeCore({ speed }: { speed: number }) {
     <group>
       <mesh ref={shell}>
         <sphereGeometry args={[0.62, 48, 48]} />
-        <shaderMaterial vertexShader={fresnelVertex} fragmentShader={fresnelFragment} uniforms={uniforms} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+        <shaderMaterial
+          vertexShader={fresnelVertex}
+          fragmentShader={fresnelFragment}
+          uniforms={uniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
       </mesh>
       <mesh>
         <sphereGeometry args={[0.2, 24, 24]} />
@@ -219,7 +226,14 @@ function Universe({ speed, density }: { speed: number; density: number }) {
           <bufferAttribute attach="attributes-color" args={[data.nodeColors, 3]} />
           <bufferAttribute attach="attributes-size" args={[data.nodeSizes, 1]} />
         </bufferGeometry>
-        <shaderMaterial vertexShader={pointVertex} fragmentShader={pointFragment} uniforms={pointUniforms} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+        <shaderMaterial
+          vertexShader={pointVertex}
+          fragmentShader={pointFragment}
+          uniforms={pointUniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
       </points>
 
       <points>
@@ -228,7 +242,14 @@ function Universe({ speed, density }: { speed: number; density: number }) {
           <bufferAttribute attach="attributes-color" args={[signal.colors, 3]} />
           <bufferAttribute attach="attributes-size" args={[signal.sizes, 1]} />
         </bufferGeometry>
-        <shaderMaterial vertexShader={pointVertex} fragmentShader={pointFragment} uniforms={pointUniforms} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+        <shaderMaterial
+          vertexShader={pointVertex}
+          fragmentShader={pointFragment}
+          uniforms={pointUniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
       </points>
 
       <instancedMesh ref={hubs} args={[undefined, undefined, data.hubMatrices.length]}>
@@ -269,7 +290,14 @@ function Starfield({ count = 1200 }: { count?: number }) {
         <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
-      <shaderMaterial vertexShader={pointVertex} fragmentShader={pointFragment} uniforms={uniforms} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+      <shaderMaterial
+        vertexShader={pointVertex}
+        fragmentShader={pointFragment}
+        uniforms={uniforms}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
     </points>
   );
 }

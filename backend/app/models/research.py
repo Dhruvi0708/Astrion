@@ -28,9 +28,7 @@ class Investigation(UUIDPrimaryKey, Timestamps, Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     question: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[str | None] = mapped_column(Text)
-    status: Mapped[InvestigationStatus] = mapped_column(
-        db_enum(InvestigationStatus, "investigation_status"), default=InvestigationStatus.draft, nullable=False
-    )
+    status: Mapped[InvestigationStatus] = mapped_column(db_enum(InvestigationStatus, "investigation_status"), default=InvestigationStatus.draft, nullable=False)
 
 
 class AgentExecution(UUIDPrimaryKey, Timestamps, Base):
@@ -48,7 +46,13 @@ class AgentExecution(UUIDPrimaryKey, Timestamps, Base):
     parent_execution_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_executions.id", ondelete="SET NULL"))
     agent_role: Mapped[AgentRole] = mapped_column(db_enum(AgentRole, "agent_role"), nullable=False)
     status: Mapped[ExecutionStatus] = mapped_column(db_enum(ExecutionStatus, "execution_status"), default=ExecutionStatus.pending, nullable=False)
-    model: Mapped[str | None] = mapped_column(String(120))
+    # Provider identity, recorded for every execution so results stay auditable.
+    provider: Mapped[str | None] = mapped_column(String(32))
+    model_requested: Mapped[str | None] = mapped_column(String(120))
+    model: Mapped[str | None] = mapped_column(String(120))  # model that actually served the response
+    # Non-null only when an explicitly configured fallback model was used; explains why.
+    fallback_reason: Mapped[str | None] = mapped_column(String(120))
+    provider_request_id: Mapped[str | None] = mapped_column(String(120))
     input: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
     output: Mapped[dict | None] = mapped_column(JSONType)
     error: Mapped[str | None] = mapped_column(Text)

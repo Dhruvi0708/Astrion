@@ -45,6 +45,33 @@ class ServiceUnavailableError(AppError):
     code = "service_unavailable"
 
 
+class UnauthorizedError(AppError):
+    """Missing, invalid or expired credentials. Clients should re-authenticate."""
+
+    status_code = status.HTTP_401_UNAUTHORIZED
+    code = "unauthorized"
+
+
+class ForbiddenError(AppError):
+    status_code = status.HTTP_403_FORBIDDEN
+    code = "forbidden"
+
+
+class TooManyRequestsError(AppError):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    code = "too_many_requests"
+
+
+class PayloadTooLargeError(AppError):
+    status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    code = "payload_too_large"
+
+
+class UnsupportedMediaTypeError(AppError):
+    status_code = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+    code = "unsupported_media_type"
+
+
 def _envelope(status_code: int, code: str, message: str, details: Any = None) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
@@ -55,7 +82,10 @@ def _envelope(status_code: int, code: str, message: str, details: Any = None) ->
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
-        return _envelope(exc.status_code, exc.code, exc.message, exc.details)
+        response = _envelope(exc.status_code, exc.code, exc.message, exc.details)
+        if isinstance(exc, UnauthorizedError):
+            response.headers["WWW-Authenticate"] = 'Bearer realm="astrion"'
+        return response
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:

@@ -145,16 +145,44 @@ const nodes: GraphNode[] = [
   n('srcE', 'Source E · Coastal Health Bulletin', 'sources', 'Fictional public-health bulletin. Not a real document.', 3, 'source'),
 
   // Sample claims
-  n('cl1', 'Warm anomalies co-occur with bleaching', 'marine', 'Sample claim: bleaching was recorded during warm-water anomalies at surveyed sites.', 2, 'claim'),
+  n(
+    'cl1',
+    'Warm anomalies co-occur with bleaching',
+    'marine',
+    'Sample claim: bleaching was recorded during warm-water anomalies at surveyed sites.',
+    2,
+    'claim',
+  ),
   n('cl2', 'Seagrass cover declined at monitored sites', 'marine', 'Sample claim: survey transects show reduced seagrass cover across seasons.', 2, 'claim'),
   n('cl3', 'Mangrove belts reduce wave energy', 'infrastructure', 'Sample claim: wave height dropped behind dense mangrove belts.', 2, 'claim'),
-  n('cl4', 'Mangroves gave limited protection in extreme surge', 'infrastructure', 'Sample claim: under the most extreme surge scenario, flood depth was similar with or without mangroves.', 2, 'claim'),
+  n(
+    'cl4',
+    'Mangroves gave limited protection in extreme surge',
+    'infrastructure',
+    'Sample claim: under the most extreme surge scenario, flood depth was similar with or without mangroves.',
+    2,
+    'claim',
+  ),
   n('cl5', 'Landings fell after reef degradation', 'community', 'Sample claim: recorded landings were lower in seasons following reef damage.', 2, 'claim'),
   n('cl6', 'Flood events precede waterborne illness reports', 'community', 'Sample claim: illness reports rose in the weeks after flood events.', 2, 'claim'),
 
   // Sample hypotheses (AI-generated in future; hand-written here)
-  n('hy1', 'Seagrass loss may amplify nutrient-driven bleaching', 'marine', 'Sample hypothesis — unverified. Proposes an indirect pathway linking two sample claims.', 3, 'hypothesis'),
-  n('hy2', 'Mangroves + drainage may outperform either alone', 'policy', 'Sample hypothesis — unverified. Suggests a combined intervention worth testing.', 3, 'hypothesis'),
+  n(
+    'hy1',
+    'Seagrass loss may amplify nutrient-driven bleaching',
+    'marine',
+    'Sample hypothesis — unverified. Proposes an indirect pathway linking two sample claims.',
+    3,
+    'hypothesis',
+  ),
+  n(
+    'hy2',
+    'Mangroves + drainage may outperform either alone',
+    'policy',
+    'Sample hypothesis — unverified. Suggests a combined intervention worth testing.',
+    3,
+    'hypothesis',
+  ),
 ];
 
 let edgeSeq = 0;
@@ -278,13 +306,12 @@ export function neighbours(graph: KnowledgeGraph, nodeId: string) {
 }
 
 export function graphStats(graph: KnowledgeGraph) {
-  const byKind = graph.nodes.reduce<Record<NodeKind, number>>(
-    (acc, node) => ({ ...acc, [node.kind]: acc[node.kind] + 1 }),
-    { concept: 0, claim: 0, source: 0, hypothesis: 0 },
-  );
-  const byRelation = graph.edges.reduce<Partial<Record<RelationKind, number>>>(
-    (acc, edge) => ({ ...acc, [edge.kind]: (acc[edge.kind] ?? 0) + 1 }),
-    {},
-  );
+  const byKind = graph.nodes.reduce<Record<NodeKind, number>>((acc, node) => ({ ...acc, [node.kind]: acc[node.kind] + 1 }), {
+    concept: 0,
+    claim: 0,
+    source: 0,
+    hypothesis: 0,
+  });
+  const byRelation = graph.edges.reduce<Partial<Record<RelationKind, number>>>((acc, edge) => ({ ...acc, [edge.kind]: (acc[edge.kind] ?? 0) + 1 }), {});
   return { nodes: graph.nodes.length, edges: graph.edges.length, clusters: graph.clusters.length, byKind, byRelation };
 }

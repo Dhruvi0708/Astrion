@@ -17,7 +17,9 @@ function Footer() {
       <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-5 md:flex-row md:items-start md:justify-between md:px-8">
         <div className="max-w-xs">
           <Logo />
-          <p className="mt-3 text-xs leading-relaxed text-ink-faint">The Living Intelligence Engine. Phase 1 — product foundation. All graph, agent and discovery content on this page is illustrative sample data.</p>
+          <p className="mt-3 text-xs leading-relaxed text-ink-faint">
+            The Living Intelligence Engine. Phase 1 — product foundation. All graph, agent and discovery content on this page is illustrative sample data.
+          </p>
         </div>
         <nav aria-label="Application">
           <p className="eyebrow mb-3">Environments</p>

@@ -15,10 +15,14 @@ dependencies = [
   "neo4j==5.26.0",
   "anthropic>=2.8,<3",
   "httpx==0.28.0",
+  "argon2-cffi==23.1.0",
+  "PyJWT==2.10.1",
+  "python-multipart==0.0.20",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==8.3.3"]
+dev = ["pytest==8.3.3", "ruff==0.8.2", "moto[s3]==5.0.22"]
+s3 = ["boto3==1.35.76"]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -31,3 +35,24 @@ include = ["app*"]
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py311"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = [
+  "B008",   # FastAPI dependency defaults (Depends/File) are idiomatic
+  "S101",   # assert in tests
+  "S105", "S106",  # test passwords / token type strings are not secrets
+  "UP040",  # keep TypeAlias style compatible with 3.11
+  "UP038",  # tuple isinstance is faster and clearer; rule is deprecated upstream
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B017"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests"]

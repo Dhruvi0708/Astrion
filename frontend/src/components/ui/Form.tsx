@@ -16,12 +16,30 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
   return <select ref={ref} className={cn(control, 'h-9 appearance-none pr-8', className)} {...props} />;
 });
 
-export function Field({ label, htmlFor, hint, error, children, required }: { label: string; htmlFor: string; hint?: ReactNode; error?: string | null; children: ReactNode; required?: boolean }) {
+export function Field({
+  label,
+  htmlFor,
+  hint,
+  error,
+  children,
+  required,
+}: {
+  label: string;
+  htmlFor: string;
+  hint?: ReactNode;
+  error?: string | null;
+  children: ReactNode;
+  required?: boolean;
+}) {
   return (
     <div className="space-y-1.5">
       <label htmlFor={htmlFor} className="flex items-center gap-1 text-xs font-medium text-ink-muted">
         {label}
-        {required && <span className="text-cyan" aria-hidden>*</span>}
+        {required && (
+          <span className="text-cyan" aria-hidden>
+            *
+          </span>
+        )}
       </label>
       {children}
       {error ? (

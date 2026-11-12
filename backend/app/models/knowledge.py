@@ -81,9 +81,7 @@ class GraphRelationship(UUIDPrimaryKey, Timestamps, Base):
     source_entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("graph_entities.id", ondelete="CASCADE"), nullable=False)
     target_entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("graph_entities.id", ondelete="CASCADE"), nullable=False)
     relation_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    status: Mapped[RelationshipStatus] = mapped_column(
-        db_enum(RelationshipStatus, "relationship_status"), default=RelationshipStatus.extracted, nullable=False
-    )
+    status: Mapped[RelationshipStatus] = mapped_column(db_enum(RelationshipStatus, "relationship_status"), default=RelationshipStatus.extracted, nullable=False)
     confidence: Mapped[float | None] = mapped_column(Float)
     evidence_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("evidence.id", ondelete="SET NULL"), index=True)
     properties: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)

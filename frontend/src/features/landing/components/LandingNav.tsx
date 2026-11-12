@@ -23,7 +23,12 @@ export function LandingNav() {
   }, []);
 
   return (
-    <header className={cn('fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300', scrolled ? 'border-b border-line/70 bg-void/80 backdrop-blur-md' : 'border-b border-transparent')}>
+    <header
+      className={cn(
+        'fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300',
+        scrolled ? 'border-b border-line/70 bg-void/80 backdrop-blur-md' : 'border-b border-transparent',
+      )}
+    >
       <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-5 md:px-8">
         <Link to="/" aria-label="ASTRION home" className="rounded">
           <Logo />

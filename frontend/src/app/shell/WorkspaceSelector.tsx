@@ -8,7 +8,7 @@ export function WorkspaceSelector({ collapsed }: { collapsed?: boolean }) {
   const { workspaces, active, isLoading, isError, setActiveId, refetch } = useActiveWorkspace();
   const openCreate = useUi((s) => s.setCreateWorkspaceOpen);
 
-  const label = isLoading ? 'Loading…' : isError ? 'Backend offline' : active?.name ?? 'No workspace yet';
+  const label = isLoading ? 'Loading…' : isError ? 'Backend offline' : (active?.name ?? 'No workspace yet');
   const initial = (active?.name ?? 'A').charAt(0).toUpperCase();
 
   return (

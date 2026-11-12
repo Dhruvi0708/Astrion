@@ -18,11 +18,11 @@ os.environ.setdefault("ASTRION_ENVIRONMENT", "test")
 os.environ.setdefault("ASTRION_LOG_JSON", "false")
 os.environ.setdefault("ASTRION_NEO4J_URI", "")
 
+import app.models  # noqa: E402,F401
 from app.db.base import Base  # noqa: E402
 from app.db.session import build_engine, get_db  # noqa: E402
 from app.graph.client import GraphHealth, get_graph_client  # noqa: E402
 from app.main import create_app  # noqa: E402
-import app.models  # noqa: E402,F401
 
 TEST_DB_URL = os.environ.get("ASTRION_TEST_DATABASE_URL")
 IS_POSTGRES = bool(TEST_DB_URL and TEST_DB_URL.startswith("postgresql"))
@@ -79,15 +79,58 @@ class FakeGraph:
 
 
 @pytest.fixture()
-def app(db_session: Session):
+def storage_root(tmp_path):
+    return tmp_path / "storage"
+
+
+@pytest.fixture()
+def app(db_session: Session, storage_root):
+    from app.services.auth import login_limiter
+    from app.storage import get_storage
+    from app.storage.local import LocalStorage
+
+    login_limiter._failures.clear()
     application = create_app()
     application.dependency_overrides[get_db] = lambda: db_session
+    application.dependency_overrides[get_storage] = lambda: LocalStorage(storage_root)
     return application
+
+
+CLIENT_HEADERS = {"X-Astrion-Client": "web"}
+DEFAULT_PASSWORD = "correct horse battery staple 42"
 
 
 @pytest.fixture()
 def client(app) -> Iterator[TestClient]:
     with TestClient(app) as c:
+        yield c
+
+
+def register_user(client: TestClient, email: str, password: str = DEFAULT_PASSWORD, name: str = "Researcher") -> dict:
+    r = client.post("/api/v1/auth/register", json={"email": email, "password": password, "display_name": name}, headers=CLIENT_HEADERS)
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def bearer(token_body: dict) -> dict:
+    return {"Authorization": f"Bearer {token_body['access_token']}"}
+
+
+@pytest.fixture()
+def auth_client(app) -> Iterator[TestClient]:
+    """A client already signed in as alice@example.org (Authorization header pre-set)."""
+    with TestClient(app) as c:
+        body = register_user(c, "alice@example.org", name="Alice")
+        c.headers.update(bearer(body))
+        yield c
+
+
+@pytest.fixture()
+def other_client(app) -> Iterator[TestClient]:
+    """A second, independent user (bob@example.org) for cross-user authorization tests."""
+    with TestClient(app) as c:
+        body = register_user(c, "bob@example.org", name="Bob")
+        c.headers.update(bearer(body))
         yield c
 
 

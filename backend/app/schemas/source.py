@@ -71,6 +71,9 @@ class DocumentRead(ORMModel):
     byte_size: int | None
     content_hash: str | None
     storage_uri: str | None
+    original_filename: str | None = None
+    storage_backend: str | None = None
+    has_file: bool = False  # derived from Document.has_file; the storage key itself is never exposed
     processing_status: DocumentProcessingStatus
     created_at: datetime
     updated_at: datetime
