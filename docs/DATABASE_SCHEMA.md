@@ -1,6 +1,13 @@
 # Database Schema
 
-Migration: `backend/alembic/versions/20261111_0001_initial_schema.py` (revision `0001`). Verified with `alembic upgrade head`, `downgrade base`, `upgrade head` and `alembic check` (no drift) on PostgreSQL 18.6.
+Migrations (`backend/alembic/versions/`):
+
+| Revision | Contents |
+|---|---|
+| `0001` initial schema | All Phase 1 tables |
+| `0002` auth, sessions, storage, provider identity | `users.password_hash`, `users.last_login_at`; new `auth_sessions`; `documents.storage_backend`, `storage_key` (unique), `original_filename`; `agent_executions.provider`, `model_requested`, `fallback_reason`, `provider_request_id`; workspace slug unique **per owner** (was global); existing emails lower-cased |
+
+Both verified with `upgrade head` → `downgrade` → `upgrade head` and `alembic check` (no drift) on PostgreSQL 18.6, and in CI on PostgreSQL 16.
 
 ## Conventions
 
@@ -34,16 +41,19 @@ hypothesis ◄──hypothesis_evidence──► evidence
 ## Tables
 
 ### users
-`email` (unique), `display_name`, `status` ∈ {active, disabled}. Authentication is not implemented yet.
+`email` (unique, stored lower-case), `display_name`, `status` ∈ {active, disabled}, `password_hash` (Argon2id; NULL = no password sign-in), `last_login_at`.
+
+### auth_sessions
+`user_id → users` (CASCADE), `family_id` (rotation chain, indexed), `refresh_token_hash` (SHA-256, unique — raw tokens are never stored), `expires_at`, `revoked_at`, `revoked_reason` ∈ {rotated, logout, logout_all, expired, reuse_detected, user_inactive}, `replaced_by_id → auth_sessions`, `user_agent`, `ip_address`. Index `(user_id, revoked_at)`. See [SECURITY_AND_AUTH.md](SECURITY_AND_AUTH.md).
 
 ### workspaces
-`owner_id → users` (SET NULL), `name`, `slug` (unique), `description`, `status` ∈ {active, archived}, `settings` JSONB. Index `(status, updated_at)`.
+`owner_id → users` (SET NULL), `name`, `slug` (unique per owner: `uq_workspaces_owner_slug`), `description`, `status` ∈ {active, archived}, `settings` JSONB. Index `(status, updated_at)`. Rows with `owner_id IS NULL` (pre-auth Phase 1 data) are not reachable through the API.
 
 ### sources
 `workspace_id`, `created_by_id → users`, `title`, `source_type` ∈ {paper, report, dataset, article, document, web, other}, `uri`, `citation`, `authors` JSONB array, `published_on` date, `description`, `status` ∈ {registered, archived}, `attributes` JSONB. Index `(workspace_id, created_at)`.
 
 ### documents
-`workspace_id`, `source_id → sources` (CASCADE), `title`, `media_type`, `byte_size` (≥ 0), `content_hash` (SHA-256 hex, indexed), `storage_uri`, `version` (≥ 1), `processing_status` ∈ {registered, queued, processing, processed, failed}, `processing_error`.
+`workspace_id`, `source_id → sources` (CASCADE), `title`, `media_type`, `byte_size` (≥ 0), `content_hash` (SHA-256 hex, indexed), `storage_uri` (external reference, metadata only), `storage_backend` (`local`/`s3`), `storage_key` (server-generated, unique; never exposed), `original_filename` (sanitised), `version` (≥ 1), `processing_status` ∈ {registered, queued, processing, processed, failed}, `processing_error`.
 
 ### claims
 `workspace_id`, `document_id → documents`, `statement`, `status` ∈ {extracted, challenged, accepted, rejected}, `extraction_method` ∈ {manual, model}, `extractor`, `confidence` ∈ [0,1].
@@ -61,7 +71,7 @@ hypothesis ◄──hypothesis_evidence──► evidence
 `workspace_id`, `created_by_id`, `title`, `question`, `summary`, `status` ∈ {draft, active, paused, closed}.
 
 ### agent_executions
-`workspace_id`, `investigation_id`, `parent_execution_id → agent_executions` (handoff chain), `agent_role` ∈ {inquirer, cartographer, retriever, skeptic, verifier}, `status` ∈ {pending, running, succeeded, failed, cancelled}, `model`, `input`/`output` JSONB, `error`, token counts, `started_at`, `finished_at` (CHECK finished ⇒ started).
+`workspace_id`, `investigation_id`, `parent_execution_id → agent_executions` (handoff chain), `agent_role` ∈ {inquirer, cartographer, retriever, skeptic, verifier}, `status` ∈ {pending, running, succeeded, failed, cancelled}, `provider`, `model_requested` (configured), `model` (actually served), `fallback_reason` (non-null only when an explicit fallback answered), `provider_request_id`, `input`/`output` JSONB, `error`, token counts, `started_at`, `finished_at` (CHECK finished ⇒ started).
 
 ### hypotheses / hypothesis_evidence
 See concepts above. `generated_by_execution_id → agent_executions` ties AI hypotheses to the run that produced them. `hypothesis_evidence (hypothesis_id, evidence_id, stance)` composite PK.
@@ -79,6 +89,6 @@ Defined in `backend/app/graph/model.py`.
 - Labels: `Entity`, `Claim`, `Source`, `Document`, `Hypothesis`.
 - Relationship types: `INFLUENCES`, `CORRELATES_WITH`, `PART_OF`, `SUPPORTS`, `CONTRADICTS`, `MENTIONED_IN`, `DERIVED_FROM`, `HYPOTHESIZED`.
 - Required properties on every node/relationship: `key`, `workspace_id`; relationships also carry `status` and `evidence_ids`.
-- Uniqueness constraints on `(workspace_id, key)` per label are defined (`SCHEMA_STATEMENTS`) and will be applied when the extraction pipeline first writes to the graph (Phase 2).
+- `GraphRepository.ensure_schema()` applies uniqueness constraints on `(workspace_id, key)` per label and indexes per label and relationship type (verified against Neo4j 5.26). Key format and mapping: [NEO4J.md](NEO4J.md#identifier-mapping).
 
 **Decisions.** Postgres keeps provenance because it needs relational integrity, transactions with the rest of the application data, and auditing. Neo4j keeps topology because multi-hop traversal and path queries are its strength. Writes in Phase 2 will go Postgres-first (registry + evidence) then Neo4j (idempotent `MERGE` on `key`), with a reconciliation job comparing the two by `graph_key`.

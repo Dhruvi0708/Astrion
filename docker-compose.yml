@@ -1,5 +1,5 @@
 # Local infrastructure for ASTRION development.
-# NOTE: provided for convenience; not exercised during Phase 1 verification (Docker was unavailable).
+# NOTE: not exercised locally (Docker was unavailable). CI uses the same images as service containers.
 services:
   postgres:
     image: postgres:16
@@ -15,7 +15,7 @@ services:
       retries: 10
 
   neo4j:
-    image: neo4j:5
+    image: neo4j:5.26-community
     environment:
       NEO4J_AUTH: neo4j/change-me-please
     ports: ["7474:7474", "7687:7687"]

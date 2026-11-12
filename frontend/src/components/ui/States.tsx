@@ -19,9 +19,7 @@ export function EmptyState({
 }) {
   return (
     <div className={cn('flex flex-col items-center justify-center px-6 py-10 text-center', className)}>
-      {icon && (
-        <div className="mb-4 grid h-11 w-11 place-items-center rounded-full border border-line-strong bg-deep text-ink-muted">{icon}</div>
-      )}
+      {icon && <div className="mb-4 grid h-11 w-11 place-items-center rounded-full border border-line-strong bg-deep text-ink-muted">{icon}</div>}
       <p className="font-display text-sm font-medium text-ink">{title}</p>
       {description && <p className="mt-1.5 max-w-sm text-[0.8rem] leading-relaxed text-ink-muted">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
@@ -35,16 +33,9 @@ export function ErrorState({ error, onRetry, className, compact }: { error: unkn
   const title = unavailable ? 'Backend unavailable' : 'Something went wrong';
   const description = unavailable
     ? 'The ASTRION API could not be reached. Start the backend (see README) and retry.'
-    : apiError?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred.');
+    : (apiError?.message ?? (error instanceof Error ? error.message : 'An unexpected error occurred.'));
   return (
-    <div
-      role="alert"
-      className={cn(
-        'flex flex-col items-center justify-center text-center',
-        compact ? 'gap-2 px-4 py-6' : 'gap-3 px-6 py-10',
-        className,
-      )}
-    >
+    <div role="alert" className={cn('flex flex-col items-center justify-center text-center', compact ? 'gap-2 px-4 py-6' : 'gap-3 px-6 py-10', className)}>
       <div className="grid h-10 w-10 place-items-center rounded-full border border-conflict/30 bg-conflict/[0.06] text-conflict">
         {unavailable ? <WifiOff size={17} /> : <AlertTriangle size={17} />}
       </div>

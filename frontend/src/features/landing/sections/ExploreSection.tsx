@@ -13,7 +13,7 @@ export function ExploreSection() {
   const [selected, setSelected] = useState<string | null>('mangrove');
   const [cluster, setCluster] = useState<ClusterId | null>(null);
   const graphRef = useRef<GraphCanvasHandle>(null);
-  const node = selected ? nodeById.get(selected) ?? null : null;
+  const node = selected ? (nodeById.get(selected) ?? null) : null;
 
   const select = useCallback((id: string | null) => setSelected(id), []);
   const focusCluster = (id: ClusterId) => {
@@ -27,7 +27,10 @@ export function ExploreSection() {
       <div className="mx-auto max-w-[1240px] px-5 md:px-8">
         <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
           <SectionIntro index="03" eyebrow="Explore the knowledge universe" title="Every concept, claim and source — connected." id="explore-title">
-            <p>A live preview of the Universe Explorer. Drag to pan, scroll with Ctrl/⌘ (or focus the canvas) to zoom, and select any node to trace its relationships back to evidence.</p>
+            <p>
+              A live preview of the Universe Explorer. Drag to pan, scroll with Ctrl/⌘ (or focus the canvas) to zoom, and select any node to trace its
+              relationships back to evidence.
+            </p>
           </SectionIntro>
           <ButtonLink to="/app/universe" variant="outline" className="self-start lg:self-auto">
             Open full explorer <ArrowRight size={15} />
@@ -44,7 +47,10 @@ export function ExploreSection() {
                   key={c.id}
                   onClick={() => focusCluster(c.id)}
                   aria-pressed={cluster === c.id}
-                  className={cn('flex h-7 items-center gap-1.5 rounded px-2 text-xs transition-colors', cluster === c.id ? 'bg-raised text-ink' : 'text-ink-muted hover:bg-raised/60 hover:text-ink')}
+                  className={cn(
+                    'flex h-7 items-center gap-1.5 rounded px-2 text-xs transition-colors',
+                    cluster === c.id ? 'bg-raised text-ink' : 'text-ink-muted hover:bg-raised/60 hover:text-ink',
+                  )}
                 >
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.color }} />
                   {c.label}
@@ -54,12 +60,23 @@ export function ExploreSection() {
           </div>
           <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="relative h-[460px] md:h-[560px]">
-              <GraphCanvas ref={graphRef} graph={sampleGraph} selectedId={selected} onSelect={select} wheelZoom="modifier" ariaLabel="Sample knowledge graph preview" />
+              <GraphCanvas
+                ref={graphRef}
+                graph={sampleGraph}
+                selectedId={selected}
+                onSelect={select}
+                wheelZoom="modifier"
+                ariaLabel="Sample knowledge graph preview"
+              />
               <div className="absolute bottom-3 left-3 flex flex-col overflow-hidden rounded-md border border-line bg-surface/90 backdrop-blur">
                 <button aria-label="Zoom in" onClick={() => graphRef.current?.zoomIn()} className="p-2 text-ink-muted hover:bg-raised hover:text-ink">
                   <Plus size={14} />
                 </button>
-                <button aria-label="Zoom out" onClick={() => graphRef.current?.zoomOut()} className="border-y border-line p-2 text-ink-muted hover:bg-raised hover:text-ink">
+                <button
+                  aria-label="Zoom out"
+                  onClick={() => graphRef.current?.zoomOut()}
+                  className="border-y border-line p-2 text-ink-muted hover:bg-raised hover:text-ink"
+                >
                   <Minus size={14} />
                 </button>
                 <button

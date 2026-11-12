@@ -1,43 +1,69 @@
-# Testing Strategy
+# Testing Strategy & CI
 
 ## Layers
 
-| Layer | Tool | Location | What it covers |
+| Layer | Tool | Location | Covers |
 |---|---|---|---|
-| Backend API | pytest + FastAPI TestClient | `backend/tests/test_health.py`, `test_workspaces.py`, `test_sources.py` | Every endpoint: success, validation (422 envelope), not-found, pagination bounds, request-id propagation, CORS preflight, dependency-down reporting |
-| Data model | pytest + SQLAlchemy | `backend/tests/test_models.py` | Full provenance chain, `verified ⇒ verified_at` CHECK, confidence ranges, no self-loops, unique graph keys, enum validation, cascades, execution handoffs, scenario baselines |
-| Config & providers | pytest | `backend/tests/test_config_and_providers.py` | Env parsing, secrets not leaked in repr/dump, null providers fail explicitly, Voyage provider (mock transport), graph vocabulary |
-| Migrations | Alembic | run by the test fixture in PostgreSQL mode | `downgrade base` → `upgrade head` on every PostgreSQL test run; `alembic check` for drift |
-| Frontend units | Vitest | `src/lib/api/client.test.ts`, `src/data/sample/sample-data.test.ts` | Error envelope parsing, outage detection, sample-data integrity (no dangling ids, nothing sample marked verified), deterministic layout, coverage gaps, toy model |
-| Frontend routes | Vitest + Testing Library (jsdom) | `src/app/routes.test.tsx` | Every environment renders an `h1` and breadcrumb with the backend offline; sidebar links; landing CTAs; 404; backend-unavailable state |
-| Types & build | `tsc -b`, `vite build` | — | Strict TypeScript; production bundle |
-| Manual browser | Claude browser pane | — | 3D hero, graph interactions, forms against the live API, mobile layout, offline state |
+| API | pytest + TestClient | `backend/tests/test_health.py`, `test_workspaces.py`, `test_sources.py` | Endpoints, validation envelope, pagination, request ids, CORS, dependency-down reporting |
+| Auth | pytest | `backend/tests/test_auth.py` | Argon2id storage, cookie flags, case-insensitive email, weak passwords, generic login errors, rate limit, CSRF header, tampered / `alg=none` / expired / wrong-audience tokens, refresh rotation + reuse detection, logout & logout-all invalidating access tokens immediately |
+| Authorization | pytest | `backend/tests/test_authorization.py` | Owner-scoped lists; 404 for every foreign workspace/source/document/download; client-supplied `owner_id` ignored; legacy unowned workspaces hidden; per-owner slugs |
+| Storage | pytest + moto | `backend/tests/test_storage.py` | Upload/download round trip, filename sanitisation, type allow-list, content sniffing, size limit, traversal keys, key stability, Windows path length, storage failure → 503, S3 via moto |
+| Neo4j | pytest, **real server** | `backend/tests/test_neo4j_integration.py` | Health, wrong password, unreachable timeout, schema idempotency + constraints, node/relationship CRUD, workspace isolation, uniqueness, transaction rollback, Cypher-injection rejection. Skipped unless `ASTRION_TEST_NEO4J_URI` is set — never mocked. |
+| AI provider | pytest, fake SDK client | `backend/tests/test_llm_provider.py` | No `fallbacks` sent, refusal raised, explicit fallback recorded, errors not treated as refusals, typed errors keep status/type/cause, model verification |
+| Data model | pytest | `backend/tests/test_models.py` | Provenance chain, CHECK constraints, cascades |
+| Migrations | Alembic | test fixture (PostgreSQL mode) + CI | `downgrade base` → `upgrade head` every PostgreSQL run; `alembic check` for drift |
+| Frontend units | Vitest | `src/lib/api/client.test.ts`, `src/data/sample/*.test.ts`, `src/features/auth/auth.test.ts` | Error envelopes, outage detection, bearer + single refresh-and-retry, session-expiry callback, CSRF header on auth calls, open-redirect protection, sample-data integrity |
+| Frontend routes | Vitest + Testing Library | `src/app/routes.test.tsx` | Every environment renders when signed in; anonymous → sign-in; expired-session message; profile shows user; Sources badge says "Backend offline" when the API is down |
+| Browser | Playwright (Chromium) | `frontend/e2e/*.spec.ts` | Landing, sidebar navigation, UI registration/sign-out/sign-in with return path, wrong password, protected routes, session restore on reload and loss on cookie clear, workspace creation, source registration with validation, upload + download, disallowed upload, **cross-user rejection (two browser contexts)**, backend-offline handling, mobile drawer + no horizontal scroll |
+| Lint / format | ESLint 9 + Prettier 3, Ruff | — | Enforced in CI |
 
-## Running
+## Running locally
 
 ```bash
-# Backend (SQLite, fast)
-cd backend && pytest
-# Backend against PostgreSQL (uses real migrations)
-ASTRION_TEST_DATABASE_URL=postgresql+psycopg://astrion@127.0.0.1:5432/astrion_test pytest
+# Backend
+cd backend
+ruff check . && ruff format --check .
+pytest                                                    # SQLite; Neo4j tests skip
+ASTRION_TEST_DATABASE_URL=postgresql+psycopg://astrion:astrion@localhost:5432/astrion_test \
+ASTRION_TEST_NEO4J_URI=bolt://localhost:7687 ASTRION_TEST_NEO4J_PASSWORD=<password> pytest
+
 # Frontend
-cd frontend && npm test && npm run typecheck && npm run build
+cd frontend
+npm run lint && npm run format:check && npm run typecheck && npm test && npm run build
+npx playwright install chromium
+npm run e2e                        # starts backend (needs ASTRION_DATABASE_URL) + Vite
+E2E_REUSE_SERVERS=1 npm run e2e    # use servers that are already running
 ```
 
-The PostgreSQL test database is reset (`downgrade base` + `upgrade head`) at session start and tables are emptied before each test.
+The backend-offline browser tests simulate the outage by aborting `/api/v1/*` requests in the browser; the backend process keeps running.
 
-## Phase 1 results (2026-11-11)
+## CI (`.github/workflows/ci.yml`)
+
+| Job | Steps |
+|---|---|
+| `frontend` | `npm ci`, ESLint, Prettier check, `tsc`, Vitest, production build |
+| `backend` | Services: PostgreSQL 16, Neo4j 5.26 Community. Ruff lint + format check, Alembic upgrade → downgrade → upgrade → check, pytest on SQLite, then pytest on PostgreSQL + Neo4j with **no skips allowed** |
+| `e2e` | Services: PostgreSQL 16. Migrations, Playwright Chromium; HTML report uploaded on failure |
+
+The workflow has **not yet run on GitHub** (nothing from this branch has been pushed).
+
+## Phase 1.5 results (2026-11-12, local Windows 11)
 
 | Suite | Result |
 |---|---|
-| Backend on SQLite | 42 passed |
-| Backend on PostgreSQL 18.6 (via Alembic) | 42 passed |
-| Alembic upgrade → downgrade → upgrade, `alembic check` | OK, no drift |
-| Frontend Vitest | 28 passed |
-| `tsc` strict | 0 errors |
-| `vite build` | success; Three.js isolated in the lazy `HeroScene` chunk |
+| Ruff lint / format | pass / pass |
+| Backend on SQLite | 102 passed, 15 skipped (the Neo4j integration tests — no server in that mode) |
+| Backend on PostgreSQL 18.6 + Neo4j 5.26.0 | **117 passed, 0 skipped** |
+| Alembic `0001`→`0002` round trip, `alembic check` | pass, no drift |
+| ESLint / Prettier / `tsc` | pass / pass / pass |
+| Vitest | 42 passed |
+| `vite build` | success; Three.js only in the lazy `HeroScene` chunk |
+| Playwright (desktop + mobile Chromium) | 14 passed, twice in a row |
 
-## Gaps / next steps
-- No automated browser (Playwright) tests yet; WebGL rendering verified manually only.
-- Neo4j only tested in "not configured" and "unreachable" modes (plus a fake client); add a containerised Neo4j job.
-- Add CI and coverage reporting.
+Bugs these suites caught during Phase 1.5 and that were fixed: Neo4j driver rejecting `Query` objects inside transactions (real-server tests); storage paths exceeding the Windows 260-character limit and the resulting unhandled 500 (Playwright upload test); a jsdom/Node `AbortSignal` mismatch in router tests (test-only shim).
+
+## Gaps
+- CI unverified until pushed.
+- S3 backend tested against moto, not a real bucket.
+- Claude model id not checked against the live API (no key available).
+- Playwright runs Chromium only.

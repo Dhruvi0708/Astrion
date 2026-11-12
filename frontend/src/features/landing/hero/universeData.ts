@@ -70,7 +70,10 @@ export function generateUniverse(opts: { clusters?: number; perCluster?: number;
     const a = centres[Math.floor(random() * clusters)];
     const b = centres[Math.floor(random() * clusters)];
     const t = random();
-    const p = a.clone().lerp(b, t).add(new THREE.Vector3(gauss() * 0.4, gauss() * 0.4, gauss() * 0.4));
+    const p = a
+      .clone()
+      .lerp(b, t)
+      .add(new THREE.Vector3(gauss() * 0.4, gauss() * 0.4, gauss() * 0.4));
     points.push(p);
     pointCluster.push(-1);
     tmp.set('#8b97ad');

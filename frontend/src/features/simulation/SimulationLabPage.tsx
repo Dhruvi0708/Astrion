@@ -42,7 +42,8 @@ export default function SimulationLabPage() {
         description="Compare a baseline with an alternative scenario, adjust assumptions, and see how outcomes diverge. Every formula is visible."
       />
       <Notice className="mt-5">
-        This is <strong className="font-medium text-ink">not a simulation</strong>. It is a transparent toy model with invented coefficients, used to demonstrate the scenario workspace. Results are unitless indices and must not be interpreted as predictions. Evidence-grounded simulation is planned.
+        This is <strong className="font-medium text-ink">not a simulation</strong>. It is a transparent toy model with invented coefficients, used to
+        demonstrate the scenario workspace. Results are unitless indices and must not be interpreted as predictions. Evidence-grounded simulation is planned.
       </Notice>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -212,7 +213,8 @@ export default function SimulationLabPage() {
                       />
                     </div>
                     <p className="mt-1 text-2xs text-ink-faint">
-                      {Math.abs(i.delta) < 0.05 ? 'No change' : i.improves ? 'Improves on baseline' : 'Worse than baseline'} · {OUTCOMES[i.key].better} is better
+                      {Math.abs(i.delta) < 0.05 ? 'No change' : i.improves ? 'Improves on baseline' : 'Worse than baseline'} · {OUTCOMES[i.key].better} is
+                      better
                     </p>
                   </li>
                 ))}
@@ -245,7 +247,9 @@ export default function SimulationLabPage() {
                   ))}
                 </tbody>
               </table>
-              <p className="mt-3 text-2xs leading-relaxed text-ink-faint">Computed in your browser from the toy formulas below. Not stored, not evidence-based.</p>
+              <p className="mt-3 text-2xs leading-relaxed text-ink-faint">
+                Computed in your browser from the toy formulas below. Not stored, not evidence-based.
+              </p>
             </Panel>
           </div>
         </div>

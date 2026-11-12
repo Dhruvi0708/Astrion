@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError } from './client';
+import { api, ApiError, configureAuth } from './client';
 
 const respond = (status: number, body: unknown, raw = false) =>
   vi.fn().mockImplementation(async () => new Response(raw ? (body as string) : JSON.stringify(body), { status }));
@@ -46,5 +46,38 @@ describe('api client', () => {
     await api.listSources('ws', { limit: 5 });
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: JSON.stringify({ name: 'W' }) });
     expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/workspaces/ws/sources?limit=5');
+  });
+
+  it('attaches the bearer token and retries once after a silent refresh', async () => {
+    let token = 'old';
+    const onSessionExpired = vi.fn();
+    configureAuth({ getAccessToken: () => token, refresh: async () => (token = 'new'), onSessionExpired });
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => new Response(JSON.stringify({ error: { code: 'unauthorized', message: 'expired' } }), { status: 401 }))
+      .mockImplementationOnce(async () => new Response(JSON.stringify({ items: [], total: 0, limit: 50, offset: 0 }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await api.listWorkspaces();
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer old');
+    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe('Bearer new');
+    expect(onSessionExpired).not.toHaveBeenCalled();
+  });
+
+  it('reports session expiry when refresh cannot recover', async () => {
+    const onSessionExpired = vi.fn();
+    configureAuth({ getAccessToken: () => 't', refresh: async () => null, onSessionExpired });
+    vi.stubGlobal('fetch', respond(401, { error: { code: 'unauthorized', message: 'expired' } }));
+    await expect(api.listWorkspaces()).rejects.toMatchObject({ status: 401 });
+    expect(onSessionExpired).toHaveBeenCalledOnce();
+  });
+
+  it('sends the CSRF client header on auth calls and never a bearer token', async () => {
+    configureAuth({ getAccessToken: () => 'secret', refresh: async () => null, onSessionExpired: () => {} });
+    const fetchMock = respond(200, { access_token: 'a', token_type: 'bearer', expires_in: 900, user: {} });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.login({ email: 'a@b.c', password: 'x' });
+    const headers = fetchMock.mock.calls[0][1].headers;
+    expect(headers['X-Astrion-Client']).toBe('web');
+    expect(headers.Authorization).toBeUndefined();
   });
 });

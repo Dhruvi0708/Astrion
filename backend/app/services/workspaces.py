@@ -1,4 +1,8 @@
-"""Workspace use-cases."""
+"""Workspace use-cases. Every function is scoped to the authenticated user.
+
+Authorization rule: a workspace is visible only to its owner. Requests for another user's workspace
+return 404 (not 403) so the API does not confirm that the resource exists.
+"""
 
 import re
 import unicodedata
@@ -8,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
-from app.models import Source, Workspace
+from app.models import Source, User, Workspace
 from app.schemas.workspace import WorkspaceCreate, WorkspaceRead
 
 
@@ -18,9 +22,9 @@ def slugify(value: str) -> str:
     return value[:120] or "workspace"
 
 
-def _unique_slug(db: Session, name: str) -> str:
+def _unique_slug(db: Session, owner_id: uuid.UUID, name: str) -> str:
     base = slugify(name)
-    taken = set(db.scalars(select(Workspace.slug).where(Workspace.slug.like(f"{base}%"))))
+    taken = set(db.scalars(select(Workspace.slug).where(Workspace.owner_id == owner_id, Workspace.slug.like(f"{base}%"))))
     if base not in taken:
         return base
     i = 2
@@ -40,28 +44,35 @@ def to_read(ws: Workspace, source_count: int) -> WorkspaceRead:
     return WorkspaceRead.model_validate(ws).model_copy(update={"source_count": source_count})
 
 
-def create_workspace(db: Session, payload: WorkspaceCreate) -> WorkspaceRead:
-    ws = Workspace(name=payload.name, description=payload.description, slug=_unique_slug(db, payload.name), settings={})
+def create_workspace(db: Session, user: User, payload: WorkspaceCreate) -> WorkspaceRead:
+    ws = Workspace(
+        owner_id=user.id,  # ownership always comes from the authenticated identity
+        name=payload.name,
+        description=payload.description,
+        slug=_unique_slug(db, user.id, payload.name),
+        settings={},
+    )
     db.add(ws)
     db.commit()
     db.refresh(ws)
     return to_read(ws, 0)
 
 
-def list_workspaces(db: Session, limit: int, offset: int) -> tuple[list[WorkspaceRead], int]:
-    total = db.scalar(select(func.count()).select_from(Workspace)) or 0
-    rows = list(db.scalars(select(Workspace).order_by(Workspace.created_at.desc(), Workspace.id).limit(limit).offset(offset)))
+def list_workspaces(db: Session, user: User, limit: int, offset: int) -> tuple[list[WorkspaceRead], int]:
+    where = Workspace.owner_id == user.id
+    total = db.scalar(select(func.count()).select_from(Workspace).where(where)) or 0
+    rows = list(db.scalars(select(Workspace).where(where).order_by(Workspace.created_at.desc(), Workspace.id).limit(limit).offset(offset)))
     counts = _source_counts(db, [w.id for w in rows])
     return [to_read(w, counts.get(w.id, 0)) for w in rows], total
 
 
-def get_workspace_model(db: Session, workspace_id: uuid.UUID) -> Workspace:
+def get_owned_workspace(db: Session, user: User, workspace_id: uuid.UUID) -> Workspace:
     ws = db.get(Workspace, workspace_id)
-    if ws is None:
+    if ws is None or ws.owner_id != user.id:
         raise NotFoundError(f"Workspace {workspace_id} was not found.")
     return ws
 
 
-def get_workspace(db: Session, workspace_id: uuid.UUID) -> WorkspaceRead:
-    ws = get_workspace_model(db, workspace_id)
+def get_workspace(db: Session, user: User, workspace_id: uuid.UUID) -> WorkspaceRead:
+    ws = get_owned_workspace(db, user, workspace_id)
     return to_read(ws, _source_counts(db, [ws.id]).get(ws.id, 0))

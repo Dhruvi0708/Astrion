@@ -46,9 +46,9 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_credentials=False,
+        allow_credentials=True,  # the refresh cookie must reach /api/v1/auth
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Accept", "X-Request-ID"],
+        allow_headers=["Authorization", "Content-Type", "Accept", "X-Request-ID", "X-Astrion-Client"],
         expose_headers=["X-Request-ID"],
     )
     register_exception_handlers(app)

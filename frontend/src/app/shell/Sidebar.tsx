@@ -71,7 +71,10 @@ export function Sidebar() {
         <button
           onClick={toggle}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={cn('flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-xs text-ink-faint hover:bg-raised/60 hover:text-ink', collapsed && 'justify-center px-0')}
+          className={cn(
+            'flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-xs text-ink-faint hover:bg-raised/60 hover:text-ink',
+            collapsed && 'justify-center px-0',
+          )}
         >
           {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
           {!collapsed && 'Collapse'}

@@ -62,7 +62,15 @@ function GapMatrix() {
                 {sources.map((s) => {
                   const n = cells.find((x) => x.cluster === c.id && x.sourceId === s.id)!.claims;
                   return (
-                    <td key={s.id} className="h-9 rounded text-center font-mono" style={n ? { background: `rgb(79 227 240 / ${0.1 + n * 0.18})`, color: '#e6ecf6' } : { background: 'transparent', boxShadow: 'inset 0 0 0 1px rgb(122 162 255 / 0.25)' }}>
+                    <td
+                      key={s.id}
+                      className="h-9 rounded text-center font-mono"
+                      style={
+                        n
+                          ? { background: `rgb(79 227 240 / ${0.1 + n * 0.18})`, color: '#e6ecf6' }
+                          : { background: 'transparent', boxShadow: 'inset 0 0 0 1px rgb(122 162 255 / 0.25)' }
+                      }
+                    >
                       {n || <span className="text-gap/60">·</span>}
                     </td>
                   );
@@ -92,7 +100,9 @@ function ContradictionComparison() {
   const d = DISCOVERIES.find((x) => x.type === 'contradiction')!;
   const [a, b] = d.evidenceIds.map((id) => evidenceById.get(id)!);
   const Column = ({ ev, side }: { ev: typeof a; side: 'A' | 'B' }) => (
-    <div className={cn('rounded-lg border p-4', ev.stance === 'contradicts' ? 'border-conflict/30 bg-conflict/[0.04]' : 'border-verified/25 bg-verified/[0.03]')}>
+    <div
+      className={cn('rounded-lg border p-4', ev.stance === 'contradicts' ? 'border-conflict/30 bg-conflict/[0.04]' : 'border-verified/25 bg-verified/[0.03]')}
+    >
       <div className="flex items-center justify-between">
         <span className="font-mono text-2xs text-ink-faint">Position {side}</span>
         <Badge tone={ev.stance === 'contradicts' ? 'conflict' : 'verified'}>{ev.stance === 'contradicts' ? 'Limits claim' : 'Supports claim'}</Badge>
@@ -126,7 +136,8 @@ function ContradictionComparison() {
         <Column ev={b} side="B" />
       </div>
       <div className="mt-3 rounded-md border border-line bg-deep/60 p-3 text-xs leading-relaxed text-ink-muted">
-        <span className="font-medium text-ink">Point of disagreement:</span> whether mangroves reduce flood exposure. <span className="font-medium text-ink">Likely moderator:</span> surge magnitude — the positions describe different conditions, so both may hold. Status:{' '}
+        <span className="font-medium text-ink">Point of disagreement:</span> whether mangroves reduce flood exposure.{' '}
+        <span className="font-medium text-ink">Likely moderator:</span> surge magnitude — the positions describe different conditions, so both may hold. Status:{' '}
         <Badge tone="hypothesis">Conditional</Badge>
       </div>
     </div>
@@ -151,7 +162,8 @@ export default function DiscoveryLabPage() {
         description="Examine hypotheses, contradictions and knowledge gaps — each tied to the evidence that produced it, and labelled by verification status."
       />
       <Notice className="mt-5">
-        Every item here is a hand-written sample built on fictional sources. None is a verified finding. Automated discovery is planned; when it arrives, AI-generated hypotheses will always start as <strong className="font-medium text-ink">Unverified</strong>.
+        Every item here is a hand-written sample built on fictional sources. None is a verified finding. Automated discovery is planned; when it arrives,
+        AI-generated hypotheses will always start as <strong className="font-medium text-ink">Unverified</strong>.
       </Notice>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
@@ -166,7 +178,10 @@ export default function DiscoveryLabPage() {
                     role="option"
                     aria-selected={on}
                     onClick={() => setParams({ d: d.id }, { replace: true })}
-                    className={cn('w-full rounded-md border px-3 py-2.5 text-left transition-colors', on ? 'bg-raised/60' : 'border-transparent hover:bg-raised/40')}
+                    className={cn(
+                      'w-full rounded-md border px-3 py-2.5 text-left transition-colors',
+                      on ? 'bg-raised/60' : 'border-transparent hover:bg-raised/40',
+                    )}
                     style={on ? { borderColor: `${m.color}55` } : undefined}
                   >
                     <span className="text-2xs font-medium uppercase tracking-[0.1em]" style={{ color: m.color }}>
@@ -264,7 +279,9 @@ export default function DiscoveryLabPage() {
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-2xs leading-relaxed text-ink-faint">Confidence describes the strength of evidence, not truth. It is independent from verification status.</p>
+            <p className="mt-2 text-2xs leading-relaxed text-ink-faint">
+              Confidence describes the strength of evidence, not truth. It is independent from verification status.
+            </p>
           </div>
           <div>
             <p className="eyebrow mb-2">Origin</p>

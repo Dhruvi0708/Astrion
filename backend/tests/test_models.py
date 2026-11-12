@@ -53,7 +53,16 @@ def graph(db_session):
     b = GraphEntity(workspace_id=ws.id, graph_key="e:y", name="Y", entity_type="concept", properties={})
     s.add_all([ev, a, b])
     s.flush()
-    rel = GraphRelationship(workspace_id=ws.id, graph_key="r:xy", source_entity_id=a.id, target_entity_id=b.id, relation_type="CORRELATES_WITH", evidence_id=ev.id, confidence=0.5, properties={})
+    rel = GraphRelationship(
+        workspace_id=ws.id,
+        graph_key="r:xy",
+        source_entity_id=a.id,
+        target_entity_id=b.id,
+        relation_type="CORRELATES_WITH",
+        evidence_id=ev.id,
+        confidence=0.5,
+        properties={},
+    )
     s.add(rel)
     s.commit()
     return {"ws": ws, "doc": doc, "claim": claim, "ev": ev, "a": a, "b": b, "rel": rel, "user": user}
@@ -96,11 +105,25 @@ def test_new_hypotheses_default_to_unverified(graph, db_session):
 
 
 def test_relationship_rejects_self_loops_and_bad_confidence(graph, db_session):
-    db_session.add(GraphRelationship(workspace_id=graph["ws"].id, graph_key="r:loop", source_entity_id=graph["a"].id, target_entity_id=graph["a"].id, relation_type="X", properties={}))
+    db_session.add(
+        GraphRelationship(
+            workspace_id=graph["ws"].id, graph_key="r:loop", source_entity_id=graph["a"].id, target_entity_id=graph["a"].id, relation_type="X", properties={}
+        )
+    )
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
-    db_session.add(GraphRelationship(workspace_id=graph["ws"].id, graph_key="r:conf", source_entity_id=graph["a"].id, target_entity_id=graph["b"].id, relation_type="X", confidence=1.5, properties={}))
+    db_session.add(
+        GraphRelationship(
+            workspace_id=graph["ws"].id,
+            graph_key="r:conf",
+            source_entity_id=graph["a"].id,
+            target_entity_id=graph["b"].id,
+            relation_type="X",
+            confidence=1.5,
+            properties={},
+        )
+    )
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()

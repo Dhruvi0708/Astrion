@@ -35,7 +35,12 @@ export function EvidenceLattice({ active, onSelect }: { active: Discovery; onSel
   const activeC = new Set(active.conceptIds);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`Evidence lattice for “${active.title}”: ${active.evidenceIds.length} evidence items and ${active.conceptIds.length} concepts are involved.`}>
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full"
+      role="img"
+      aria-label={`Evidence lattice for “${active.title}”: ${active.evidenceIds.length} evidence items and ${active.conceptIds.length} concepts are involved.`}
+    >
       {/* Column labels */}
       {[
         [40, 'EVIDENCE'],
@@ -112,7 +117,15 @@ export function EvidenceLattice({ active, onSelect }: { active: Discovery; onSel
         const on = activeEv.has(ev.id);
         return (
           <g key={ev.id} opacity={on ? 1 : 0.45}>
-            <rect x={40} y={evY(i) - 17} width={222} height={34} rx={5} fill="#0a0e1a" stroke={on ? (ev.stance === 'contradicts' ? '#ff7a8a' : meta.color) : '#1c253d'} />
+            <rect
+              x={40}
+              y={evY(i) - 17}
+              width={222}
+              height={34}
+              rx={5}
+              fill="#0a0e1a"
+              stroke={on ? (ev.stance === 'contradicts' ? '#ff7a8a' : meta.color) : '#1c253d'}
+            />
             <text x={50} y={evY(i) - 3} fontSize={8} fill="#5a6680" fontFamily="ui-monospace, monospace">
               {ev.sourceLabel.split(' · ')[0].toUpperCase()} · {ev.locator}
             </text>

@@ -30,3 +30,13 @@ if (!window.matchMedia) {
 HTMLCanvasElement.prototype.getContext = (() => null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 window.scrollTo = () => {};
 Element.prototype.scrollIntoView = () => {};
+
+// React Router's data router builds a `Request` on every navigation. Under jsdom the AbortSignal it
+// passes comes from jsdom while `Request` comes from Node, which rejects it. Test-only shim.
+const NodeRequest = globalThis.Request;
+globalThis.Request = class extends NodeRequest {
+  constructor(input: RequestInfo | URL, init?: RequestInit) {
+    const { signal: _signal, ...rest } = init ?? {};
+    super(input, rest);
+  }
+} as typeof Request;

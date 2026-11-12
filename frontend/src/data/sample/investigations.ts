@@ -41,11 +41,22 @@ export const SAMPLE_INVESTIGATIONS: SampleInvestigation[] = [
     sourceIds: ['srcB', 'srcD'],
     claims: [
       { id: 'cl3', statement: 'Mangrove belts reduce wave energy reaching the shore.', stance: 'supports', evidenceIds: ['ev3'], status: 'accepted' },
-      { id: 'cl4', statement: 'Mangroves gave limited protection under the most extreme surge scenario.', stance: 'contradicts', evidenceIds: ['ev4'], status: 'challenged' },
+      {
+        id: 'cl4',
+        statement: 'Mangroves gave limited protection under the most extreme surge scenario.',
+        stance: 'contradicts',
+        evidenceIds: ['ev4'],
+        status: 'challenged',
+      },
       { id: 'cl6', statement: 'Flood events precede waterborne illness reports.', stance: 'context', evidenceIds: ['ev6'], status: 'extracted' },
     ],
     findings: [
-      { id: 'f1', text: 'Protection appears to depend on surge magnitude; evidence for extreme events is limited to one source.', status: 'conditional', basis: ['ev3', 'ev4'] },
+      {
+        id: 'f1',
+        text: 'Protection appears to depend on surge magnitude; evidence for extreme events is limited to one source.',
+        status: 'conditional',
+        basis: ['ev3', 'ev4'],
+      },
       { id: 'f2', text: 'No sample source quantifies belt width, so the conditions cannot yet be compared.', status: 'draft', basis: [] },
     ],
     timeline: [
@@ -68,7 +79,9 @@ export const SAMPLE_INVESTIGATIONS: SampleInvestigation[] = [
       { id: 'cl1', statement: 'Warm anomalies co-occur with bleaching at surveyed sites.', stance: 'supports', evidenceIds: ['ev1'], status: 'extracted' },
       { id: 'cl5', statement: 'Landings fell in seasons after reef degradation.', stance: 'supports', evidenceIds: ['ev5'], status: 'extracted' },
     ],
-    findings: [{ id: 'f3', text: 'Association is plausible but sites and periods in the two sources do not yet align.', status: 'unverified', basis: ['ev1', 'ev5'] }],
+    findings: [
+      { id: 'f3', text: 'Association is plausible but sites and periods in the two sources do not yet align.', status: 'unverified', basis: ['ev1', 'ev5'] },
+    ],
     timeline: [
       { id: 't1', label: 'Investigation opened', detail: 'Research question recorded.', kind: 'created', at: 'Day 1' },
       { id: 't2', label: 'Sources attached', detail: 'Source A and Source C linked.', kind: 'source', at: 'Day 1' },

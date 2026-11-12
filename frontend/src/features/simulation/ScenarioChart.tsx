@@ -41,7 +41,15 @@ export function ScenarioChart({ outcome, baseline, alternative }: { outcome: Out
 
   return (
     <div className="relative">
-      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full touch-none" onPointerMove={onMove} onPointerLeave={() => setHover(null)} role="img" aria-label={`${OUTCOMES[outcome].label} over 10 years: baseline ends at ${lastB.toFixed(0)}, alternative at ${lastA.toFixed(0)} (illustrative index).`}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full touch-none"
+        onPointerMove={onMove}
+        onPointerLeave={() => setHover(null)}
+        role="img"
+        aria-label={`${OUTCOMES[outcome].label} over 10 years: baseline ends at ${lastB.toFixed(0)}, alternative at ${lastA.toFixed(0)} (illustrative index).`}
+      >
         {ticks.map((v) => (
           <g key={v}>
             <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke="#1c253d" strokeWidth={1} />
@@ -78,7 +86,10 @@ export function ScenarioChart({ outcome, baseline, alternative }: { outcome: Out
         )}
       </svg>
       {hover !== null && (
-        <div className="pointer-events-none absolute top-2 rounded-md border border-line-strong bg-surface px-3 py-2 text-xs shadow-panel" style={{ left: `${(x(hover) / W) * 100}%`, transform: `translateX(${hover > 6 ? 'calc(-100% - 10px)' : '10px'})` }}>
+        <div
+          className="pointer-events-none absolute top-2 rounded-md border border-line-strong bg-surface px-3 py-2 text-xs shadow-panel"
+          style={{ left: `${(x(hover) / W) * 100}%`, transform: `translateX(${hover > 6 ? 'calc(-100% - 10px)' : '10px'})` }}
+        >
           <p className="font-medium text-ink">Year {hover}</p>
           {[
             ['Baseline', SERIES.baseline, baseline[hover][outcome]],

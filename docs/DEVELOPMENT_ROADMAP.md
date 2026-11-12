@@ -1,18 +1,29 @@
 # Development Roadmap
 
-## Phase 1 — Foundation *(this release)*
+## Phase 1 — Foundation *(done)*
 Product identity, landing page with 3D universe, app shell and eight environments, workspaces/sources/document-metadata API, full initial schema + migration, Neo4j connection layer, AI provider abstractions, documentation and tests.
 
-### Must address before Phase 2
-1. **Authentication & authorisation** — users exist in the schema but nothing authenticates; add auth and scope every query by membership before exposing the API.
-2. **Neo4j verification** — the driver integration was verified only against an unreachable server (reports `unavailable` correctly). Run against a real Neo4j 5 instance and apply `SCHEMA_STATEMENTS`.
-3. **Object storage** — choose a store (S3-compatible) for document files; `documents.storage_uri` is ready.
-4. **CI** — wire `pytest` (with PostgreSQL), `npm test`, `npm run typecheck`, `npm run build` into CI.
-5. **Docker compose** — provided but not exercised (Docker was unavailable during Phase 1).
-6. **End-to-end browser tests** — manual browser verification was done; add Playwright.
+## Phase 1.5 — Foundation hardening *(this release, branch `foundation-hardening`)*
+| Pre-Phase-2 item | Status |
+|---|---|
+| Authentication & authorization | Done — accounts, Argon2id, rotating refresh sessions, owner-scoped resources, cross-user tests |
+| Neo4j verification | Done — repository with CRUD, constraints, transactions; 15 integration tests pass against real Neo4j 5.26 |
+| Object storage | Done — local + S3-compatible backends with validation (S3 verified against moto only) |
+| CI | Done — `.github/workflows/ci.yml` (not yet run on GitHub: nothing pushed) |
+| Docker compose | Still not exercised locally (no Docker); CI uses the same images |
+| Browser tests | Done — 14 Playwright tests |
+| AI provider integrity | Done — no silent fallback; identity recorded; model check CLI (not run against live API: no key) |
+
+### Remaining before Phase 2
+1. Run CI on GitHub once the branch is pushed and fix anything environment-specific.
+2. Verify `python -m app.ai.check` with a real `ANTHROPIC_API_KEY`.
+3. Verify the S3 backend against a real bucket (MinIO or AWS).
+4. Decide on email verification / password reset before inviting external users.
+5. Move the login rate limiter to a shared store before running more than one API instance.
+6. Assign owners to (or delete) any pre-auth Phase 1 workspaces.
 
 ## Phase 2 — Ingest, Understand, Connect
-- File upload → storage → parsing (PDF, HTML, CSV) → `documents.processing_status` lifecycle.
+- Parsing of stored files (PDF, HTML, CSV) → `documents.processing_status` lifecycle (upload + storage already exist).
 - Claim and evidence extraction with Claude (structured outputs), recording `extraction_method='model'` and `extractor`.
 - Entity resolution; write registry rows then `MERGE` into Neo4j by `graph_key`; reconciliation job.
 - Embeddings for evidence spans; semantic search.

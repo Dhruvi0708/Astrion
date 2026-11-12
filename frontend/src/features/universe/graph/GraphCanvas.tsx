@@ -128,7 +128,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
-      const selected = s.selectedId ? nodeMap.get(s.selectedId) ?? null : null;
+      const selected = s.selectedId ? (nodeMap.get(s.selectedId) ?? null) : null;
       const neighbourhood = new Set<string>();
       if (selected) {
         neighbourhood.add(selected.id);
@@ -293,8 +293,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
 
         const showLabel =
           s.labels === 'all' ||
-          (s.labels === 'auto' &&
-            (isSel || isHover || (selected ? neighbourhood.has(node.id) : node.weight >= 4 || k > 1.35) || (q && matches(node))));
+          (s.labels === 'auto' && (isSel || isHover || (selected ? neighbourhood.has(node.id) : node.weight >= 4 || k > 1.35) || (q && matches(node))));
         if (s.labels !== 'none' && showLabel && inFocus) labelQueue.push({ node, p, r, strong: isSel || isHover });
       }
 
@@ -402,7 +401,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       } else target.current = { x, y, k };
       invalidate();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     [invalidate],
   );
 
@@ -565,7 +564,6 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       canvas.removeEventListener('pointerleave', onLeave);
       canvas.removeEventListener('wheel', onWheel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph, layout, onSelect, wheelZoom, zoomBy, invalidate, isNodeVisible]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {

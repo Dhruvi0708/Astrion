@@ -32,7 +32,19 @@ const dots: Partial<Record<Tone, string>> = {
   cyan: 'bg-cyan',
 };
 
-export function Badge({ tone = 'neutral', children, dot, className, title }: { tone?: Tone; children: ReactNode; dot?: boolean; className?: string; title?: string }) {
+export function Badge({
+  tone = 'neutral',
+  children,
+  dot,
+  className,
+  title,
+}: {
+  tone?: Tone;
+  children: ReactNode;
+  dot?: boolean;
+  className?: string;
+  title?: string;
+}) {
   return (
     <span
       title={title}

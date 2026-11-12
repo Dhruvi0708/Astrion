@@ -10,3 +10,8 @@ __pycache__/
 .pgdata/
 coverage/
 .DS_Store
+playwright-report/
+test-results/
+backend/var/
+*.sqlite
+*.db

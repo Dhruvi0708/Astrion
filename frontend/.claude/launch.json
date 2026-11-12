@@ -1,6 +1,4 @@
 {
   "version": "0.0.1",
-  "configurations": [
-    { "name": "astrion-web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 }
-  ]
+  "configurations": [{ "name": "astrion-web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 }]
 }

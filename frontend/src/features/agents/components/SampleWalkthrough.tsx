@@ -85,7 +85,10 @@ export function SampleWalkthrough({ autoPlay = true, dense, showWorkflow = true 
                   <button
                     onClick={() => go(i)}
                     aria-current={i === step ? 'step' : undefined}
-                    className={cn('flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-xs transition-colors', i === step ? 'bg-raised text-ink' : i < step ? 'text-ink-muted hover:bg-raised/50' : 'text-ink-faint hover:bg-raised/50')}
+                    className={cn(
+                      'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-xs transition-colors',
+                      i === step ? 'bg-raised text-ink' : i < step ? 'text-ink-muted hover:bg-raised/50' : 'text-ink-faint hover:bg-raised/50',
+                    )}
                   >
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: i <= step ? agent.color : 'rgb(var(--line-strong))' }} />
                     <span className="font-mono text-2xs text-ink-faint">0{i + 1}</span>
@@ -97,7 +100,13 @@ export function SampleWalkthrough({ autoPlay = true, dense, showWorkflow = true 
           </ol>
           <div className="min-h-[170px] p-5" aria-live="polite">
             <AnimatePresence mode="wait">
-              <motion.div key={current.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}>
+              <motion.div
+                key={current.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.25 }}
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-display text-sm font-medium" style={{ color: agentByRole[current.role].color }}>
                     {agentByRole[current.role].name}

@@ -7,7 +7,17 @@ import { cn } from '@/lib/cn';
  * Horizontal (desktop) / vertical (mobile) handoff diagram of the five planned agent roles.
  * `activeRole` and `nextRole` highlight the current handoff in a walkthrough.
  */
-export function AgentWorkflow({ activeRole, nextRole, onSelect, className }: { activeRole?: AgentRole | null; nextRole?: AgentRole | null; onSelect?: (role: AgentRole) => void; className?: string }) {
+export function AgentWorkflow({
+  activeRole,
+  nextRole,
+  onSelect,
+  className,
+}: {
+  activeRole?: AgentRole | null;
+  nextRole?: AgentRole | null;
+  onSelect?: (role: AgentRole) => void;
+  className?: string;
+}) {
   return (
     <ol className={cn('flex flex-col items-stretch gap-2 md:flex-row md:items-center md:gap-0', className)} aria-label="Agent handoff sequence">
       {AGENTS.map((agent, i) => {
@@ -26,7 +36,10 @@ export function AgentWorkflow({ activeRole, nextRole, onSelect, className }: { a
                 )}
                 style={active ? { boxShadow: `0 0 0 1px ${agent.color}88, 0 0 28px -8px ${agent.color}` } : undefined}
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border" style={{ borderColor: `${agent.color}55`, background: `${agent.color}12`, color: agent.color }}>
+                <span
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full border"
+                  style={{ borderColor: `${agent.color}55`, background: `${agent.color}12`, color: agent.color }}
+                >
                   <agent.icon size={16} strokeWidth={1.75} />
                 </span>
                 <span className="min-w-0">

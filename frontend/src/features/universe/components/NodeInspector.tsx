@@ -65,7 +65,10 @@ export function NodeInspector({
         <ul className="space-y-1.5">
           {links.slice(0, compact ? 6 : undefined).map(({ edge, node: other, direction }) => (
             <li key={edge.id}>
-              <button onClick={() => onSelect(other.id)} className="group w-full rounded-md border border-line bg-deep/60 px-3 py-2 text-left transition-colors hover:border-line-strong hover:bg-raised/40">
+              <button
+                onClick={() => onSelect(other.id)}
+                className="group w-full rounded-md border border-line bg-deep/60 px-3 py-2 text-left transition-colors hover:border-line-strong hover:bg-raised/40"
+              >
                 <div className="flex items-center gap-2 text-2xs uppercase tracking-[0.08em]" style={{ color: RELATION_COLOR[edge.kind] }}>
                   {direction === 'out' ? <ArrowUpRight size={11} /> : <ArrowDownLeft size={11} />}
                   {direction === 'out' ? RELATION_LABEL[edge.kind] : `${RELATION_LABEL[edge.kind]} ←`}
@@ -73,7 +76,12 @@ export function NodeInspector({
                 <p className="mt-1 truncate text-[0.8rem] text-ink group-hover:text-cyan">{other.label}</p>
                 {!compact && edge.kind !== 'mentions' && (
                   <div className="mt-1.5 flex items-center gap-3">
-                    <Meter value={edge.confidence} label={`Sample confidence for ${RELATION_LABEL[edge.kind]} ${other.label}`} tone={edge.kind === 'contradicts' ? 'conflict' : edge.kind === 'hypothesized' ? 'violet' : 'cyan'} className="flex-1" />
+                    <Meter
+                      value={edge.confidence}
+                      label={`Sample confidence for ${RELATION_LABEL[edge.kind]} ${other.label}`}
+                      tone={edge.kind === 'contradicts' ? 'conflict' : edge.kind === 'hypothesized' ? 'violet' : 'cyan'}
+                      className="flex-1"
+                    />
                     <span className="text-2xs text-ink-faint">{edge.evidence} evid.</span>
                   </div>
                 )}
@@ -83,7 +91,9 @@ export function NodeInspector({
         </ul>
         {compact && links.length > 6 && <p className="mt-2 text-2xs text-ink-faint">+{links.length - 6} more in the Universe Explorer</p>}
         {graph.isSample && !compact && (
-          <p className="mt-4 text-2xs leading-relaxed text-ink-faint">Confidence values and evidence counts are placeholder sample values, not computed results.</p>
+          <p className="mt-4 text-2xs leading-relaxed text-ink-faint">
+            Confidence values and evidence counts are placeholder sample values, not computed results.
+          </p>
         )}
       </div>
     </div>
