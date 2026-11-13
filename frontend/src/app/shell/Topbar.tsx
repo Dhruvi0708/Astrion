@@ -11,7 +11,9 @@ import { navByPath } from '../navigation';
 function Breadcrumbs() {
   const { pathname } = useLocation();
   const { active } = useActiveWorkspace();
-  const item = navByPath.get(pathname.replace(/\/$/, ''));
+  // Nested routes (e.g. /app/investigations/:id) belong to their parent environment.
+  const path = pathname.replace(/\/$/, '');
+  const item = navByPath.get(path) ?? navByPath.get(path.split('/').slice(0, 3).join('/'));
   return (
     <nav aria-label="Breadcrumb" className="min-w-0">
       <ol className="flex items-center gap-1.5 text-[0.8rem]">

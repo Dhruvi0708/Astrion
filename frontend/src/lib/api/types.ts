@@ -132,3 +132,5 @@ export interface DocumentCreate {
   content_hash?: string | null;
   storage_uri?: string | null;
 }
+
+export * from './intelligence-types';

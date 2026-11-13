@@ -83,8 +83,28 @@ def storage_root(tmp_path):
     return tmp_path / "storage"
 
 
+class IntelligenceHarness:
+    """What the test app uses to run investigations: the LLM (None = not configured), an optional
+    graph repository, and settings overrides. Runs are executed inline, inside the request."""
+
+    def __init__(self) -> None:
+        self.llm = None
+        self.graph_repo = None
+        self.settings_overrides: dict = {}
+        self.sleeps: list[float] = []
+
+
 @pytest.fixture()
-def app(db_session: Session, storage_root):
+def harness() -> IntelligenceHarness:
+    return IntelligenceHarness()
+
+
+@pytest.fixture()
+def app(db_session: Session, storage_root, harness: IntelligenceHarness):
+    from app.core.config import get_settings
+    from app.intelligence.orchestrator import Orchestrator
+    from app.intelligence.runner import InvestigationRunner
+    from app.intelligence.wiring import get_intelligence_llm
     from app.services.auth import login_limiter
     from app.storage import get_storage
     from app.storage.local import LocalStorage
@@ -93,6 +113,16 @@ def app(db_session: Session, storage_root):
     application = create_app()
     application.dependency_overrides[get_db] = lambda: db_session
     application.dependency_overrides[get_storage] = lambda: LocalStorage(storage_root)
+    application.dependency_overrides[get_intelligence_llm] = lambda: harness.llm
+
+    sessions = sessionmaker(bind=db_session.get_bind(), autoflush=False, expire_on_commit=False)
+
+    def orchestrator() -> Orchestrator:
+        settings = get_settings().model_copy(update={"agent_retry_backoff_seconds": 0.0, **harness.settings_overrides})
+        return Orchestrator(sessions, harness.llm, settings, storage=LocalStorage(storage_root), graph_repo=harness.graph_repo, sleep=harness.sleeps.append)
+
+    # Never let the test app's lifespan touch the configured (dev) database.
+    application.state.investigation_runner = InvestigationRunner(sessions, get_settings(), orchestrator, inline=True)
     return application
 
 
@@ -143,4 +173,4 @@ def pytest_report_header(config):  # noqa: ANN001
     return f"database: {'postgresql (alembic migrations)' if IS_POSTGRES else 'sqlite (metadata)'}"
 
 
-__all__ = ["IS_POSTGRES", "FakeGraph", "text", "get_graph_client"]
+__all__ = ["IS_POSTGRES", "FakeGraph", "IntelligenceHarness", "text", "get_graph_client"]

@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, JSONType, Timestamps, UUIDPrimaryKey
@@ -29,6 +29,20 @@ class Investigation(UUIDPrimaryKey, Timestamps, Base):
     question: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[str | None] = mapped_column(Text)
     status: Mapped[InvestigationStatus] = mapped_column(db_enum(InvestigationStatus, "investigation_status"), default=InvestigationStatus.draft, nullable=False)
+    # Documents the user selected for this investigation (ids). Empty = every document in the workspace.
+    document_ids: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    # Structured output of the Orchestrator Agent (objective analysis and sub-questions).
+    plan: Mapped[dict | None] = mapped_column(JSONType)
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    run_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    llm_provider: Mapped[str | None] = mapped_column(String(32))
+    llm_model: Mapped[str | None] = mapped_column(String(120))
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
 
 class AgentExecution(UUIDPrimaryKey, Timestamps, Base):
@@ -39,6 +53,7 @@ class AgentExecution(UUIDPrimaryKey, Timestamps, Base):
         Index("ix_agent_executions_investigation_created", "investigation_id", "created_at"),
         Index("ix_agent_executions_workspace_status", "workspace_id", "status"),
         CheckConstraint("finished_at IS NULL OR started_at IS NOT NULL", name="finished_after_start"),
+        UniqueConstraint("investigation_id", "step_key", "attempt", name="uq_agent_executions_step_attempt"),
     )
 
     workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
@@ -60,6 +75,13 @@ class AgentExecution(UUIDPrimaryKey, Timestamps, Base):
     output_tokens: Mapped[int | None] = mapped_column(Integer)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Pipeline bookkeeping: a stable step identity enables resume and duplicate prevention.
+    step_key: Mapped[str | None] = mapped_column(String(120))
+    attempt: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    depends_on: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[float | None] = mapped_column(Float)
+    summary: Mapped[str | None] = mapped_column(Text)  # short human-readable outcome
 
 
 class Hypothesis(UUIDPrimaryKey, Timestamps, Base):
@@ -83,6 +105,9 @@ class Hypothesis(UUIDPrimaryKey, Timestamps, Base):
         db_enum(VerificationStatus, "verification_status"), default=VerificationStatus.unverified, nullable=False
     )
     confidence: Mapped[float | None] = mapped_column(Float)
+    # How `confidence` was computed (inputs and formula), so it can be audited.
+    confidence_method: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    test_plan: Mapped[str | None] = mapped_column(Text)
     verified_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verification_note: Mapped[str | None] = mapped_column(Text)

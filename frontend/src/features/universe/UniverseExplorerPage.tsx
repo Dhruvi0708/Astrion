@@ -18,6 +18,8 @@ import {
   type RelationKind,
 } from '@/data/sample/graph';
 import { cn } from '@/lib/cn';
+import { GraphExplorer } from '@/features/workbench/graph/GraphExplorer';
+import { useActiveWorkspace } from '@/features/workspaces/useActiveWorkspace';
 import { useMediaQuery } from '@/lib/hooks';
 import { usePreferences } from '@/stores/ui';
 import { GraphLegend } from './components/GraphLegend';
@@ -63,7 +65,7 @@ function CheckRow({
   );
 }
 
-export default function UniverseExplorerPage() {
+function SampleUniverse() {
   const [params, setParams] = useSearchParams();
   const selectedId = params.get('node');
   const graphRef = useRef<GraphCanvasHandle>(null);
@@ -237,8 +239,7 @@ export default function UniverseExplorerPage() {
   );
 
   return (
-    <div className="relative flex h-[calc(100dvh-52px)] min-h-[520px]">
-      <h1 className="sr-only">Universe Explorer</h1>
+    <div className="relative flex h-[calc(100dvh-52px-45px)] min-h-[520px]">
       {/* Filters: docked on wide screens, drawer otherwise */}
       {wide ? (
         <aside aria-label="Search and filters" className="w-[268px] shrink-0 border-r border-line bg-abyss">
@@ -375,6 +376,45 @@ export default function UniverseExplorerPage() {
         <aside aria-label="Node inspector" className="w-[320px] shrink-0 border-l border-line bg-abyss">
           <NodeInspector graph={sampleGraph} node={selectedNode} onSelect={selectAndFocus} onClose={() => select(null)} />
         </aside>
+      )}
+    </div>
+  );
+}
+
+type UniverseView = 'workspace' | 'sample';
+
+/** Your workspace's recorded knowledge graph, or the illustrative sample universe. */
+export default function UniverseExplorerPage() {
+  const [params, setParams] = useSearchParams();
+  const view: UniverseView = params.get('view') === 'sample' ? 'sample' : 'workspace';
+  const { active } = useActiveWorkspace();
+  return (
+    <div>
+      <div className="flex h-[45px] items-center gap-3 border-b border-line bg-abyss px-4">
+        <h1 className="font-display text-sm text-ink">Universe Explorer</h1>
+        <Segmented<UniverseView>
+          label="Graph source"
+          value={view}
+          onChange={(v) => setParams(v === 'sample' ? { view: 'sample' } : {}, { replace: true })}
+          options={[
+            { value: 'workspace', label: active ? `Workspace: ${active.name}` : 'Your workspace' },
+            { value: 'sample', label: 'Sample universe' },
+          ]}
+        />
+        {view === 'sample' && <SampleBadge />}
+      </div>
+      {view === 'sample' ? (
+        <SampleUniverse />
+      ) : active ? (
+        <div className="mx-auto max-w-[1480px] px-4 py-5 md:px-8">
+          <GraphExplorer
+            workspaceId={active.id}
+            height={620}
+            emptyHint="Nothing has been extracted in this workspace yet. Run an investigation, or switch to the sample universe to see how the explorer works."
+          />
+        </div>
+      ) : (
+        <p className="p-8 text-sm text-ink-muted">Create a workspace to build a knowledge graph.</p>
       )}
     </div>
   );

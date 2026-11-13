@@ -190,6 +190,35 @@ class GraphOps:
     def clear_workspace(self, workspace_id: str) -> None:
         self._run("MATCH (n {workspace_id: $ws}) DETACH DELETE n", ws=workspace_id)
 
+    def keys(self, workspace_id: str, label: NodeLabel | str) -> list[str]:
+        lbl = _label(label)
+        return [r["k"] for r in self._run(f"MATCH (n:{lbl} {{workspace_id: $ws}}) RETURN n.key AS k", ws=workspace_id)]
+
+    def relationship_keys(self, workspace_id: str, rel_types: list[RelType]) -> list[str]:
+        types = "|".join(_rel_type(t) for t in rel_types)
+        return [r["k"] for r in self._run(f"MATCH ()-[r:{types} {{workspace_id: $ws}}]->() RETURN r.key AS k", ws=workspace_id)]
+
+    def subgraph(self, workspace_id: str, labels: list[NodeLabel], rel_types: list[RelType], limit: int = 500) -> tuple[list[GraphNode], list[GraphRel]]:
+        """Nodes of the given labels and relationships of the given types between them (workspace-scoped)."""
+        lbls = [_label(x) for x in labels]
+        types = "|".join(_rel_type(t) for t in rel_types)
+        nodes_res = self._run(
+            "MATCH (n {workspace_id: $ws}) WHERE any(l IN labels(n) WHERE l IN $labels) RETURN n ORDER BY n.key LIMIT $limit",
+            ws=workspace_id,
+            labels=lbls,
+            limit=max(1, min(limit, 2000)),
+        )
+        nodes = [_node(r["n"]) for r in nodes_res]
+        keys = [n.key for n in nodes]
+        rels_res = self._run(
+            f"MATCH (a {{workspace_id: $ws}})-[r:{types} {{workspace_id: $ws}}]->(b {{workspace_id: $ws}}) "
+            "WHERE a.key IN $keys AND b.key IN $keys RETURN r, a.key AS a, b.key AS b LIMIT $limit",
+            ws=workspace_id,
+            keys=keys,
+            limit=max(1, min(limit * 4, 8000)),
+        )
+        return nodes, [_rel(r["r"], r["a"], r["b"]) for r in rels_res]
+
 
 def _translate(exc: Exception) -> GraphError:
     if isinstance(exc, AuthError):
@@ -285,3 +314,12 @@ class GraphRepository:
 
     def clear_workspace(self, workspace_id: str) -> None:
         self._write(lambda ops: ops.clear_workspace(workspace_id))
+
+    def keys(self, workspace_id: str, label: NodeLabel | str) -> list[str]:
+        return self._read(lambda ops: ops.keys(workspace_id, label))
+
+    def relationship_keys(self, workspace_id: str, rel_types: list[RelType]) -> list[str]:
+        return self._read(lambda ops: ops.relationship_keys(workspace_id, rel_types))
+
+    def subgraph(self, workspace_id: str, labels: list[NodeLabel], rel_types: list[RelType], limit: int = 500) -> tuple[list[GraphNode], list[GraphRel]]:
+        return self._read(lambda ops: ops.subgraph(workspace_id, labels, rel_types, limit))

@@ -1,6 +1,17 @@
 # AI Provider Configuration
 
-No feature calls an AI provider yet (agents and extraction arrive in later phases). Phase 1.5 hardens the provider layer so future calls are auditable.
+Investigation agents call Claude through `app/intelligence/llm.py` (`ClaudeStructuredLLM`). Every call is a structured-output request validated against the agent's contract. Provider, served model, request id, tokens and estimated cost are recorded per execution. See [INTELLIGENCE_ENGINE.md](INTELLIGENCE_ENGINE.md).
+
+## Providers for investigations
+
+| `ASTRION_LLM_PROVIDER` | Behaviour |
+|---|---|
+| `anthropic` (default) | Uses `ANTHROPIC_API_KEY`. Without a key, `/intelligence/status` reports `configured: false` and `start` returns 503 `llm_unavailable`. Nothing is faked. |
+| `fixture` | Deterministic keyword rules (`app/intelligence/fixture.py`) for offline development, tests and e2e. Rejected unless `ASTRION_ENVIRONMENT` is `development` or `test`. Results are recorded as provider `fixture` and labelled "not AI" in the UI and reports. |
+
+Structured outputs: `output_config.format = {type: "json_schema", schema}` with a strict schema generated from the Pydantic contract (`strict_json_schema`: every object closed and all fields required). The output is re-validated with Pydantic; a mismatch is a retryable `SchemaValidationError`. `stop_reason` `refusal` → `ProviderRefusalError`; `max_tokens` → retryable `ProviderUnavailableError`.
+
+The Phase 1.5 provider layer below is reused for error translation.
 
 ## Claude (`app/ai/llm.py`)
 
@@ -23,7 +34,7 @@ Requests use the official Anthropic SDK with streaming, adaptive thinking and an
 | Model verification | `ClaudeProvider.verify_model()` checks the id via the Models API (no tokens billed). CLI: `python -m app.ai.check` (exit code 0 = all configured models available). |
 
 ### Verification status
-Unit-tested with a fake SDK client (`tests/test_llm_provider.py`). The model id has **not** been verified against Anthropic's live API in this environment because no API key was available; run `python -m app.ai.check` once `ANTHROPIC_API_KEY` is set.
+Unit-tested with a fake SDK client (`tests/test_llm_provider.py`, `tests/test_intelligence_units.py`). The model id has **not** been verified against Anthropic's live API in this environment because no API key was available; run `python -m app.ai.check` once `ANTHROPIC_API_KEY` is set.
 
 ## Embeddings (`app/ai/embeddings.py`)
 Voyage AI over HTTPS (`VOYAGE_API_KEY`, `ASTRION_EMBEDDING_MODEL=voyage-3.5`). Unconfigured providers raise `ProviderNotConfiguredError` explicitly.

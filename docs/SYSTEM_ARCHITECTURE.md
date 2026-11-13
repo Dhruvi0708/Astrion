@@ -54,6 +54,7 @@ The two are joined by `graph_key`: every Neo4j node/relationship has a `key` pro
 | `app/services` | Use-cases; raise `AppError`s; no FastAPI imports. |
 | `app/api/v1` | Thin routers; versioned under `/api/v1`. |
 | `app/graph` | `Neo4jGraphClient` (driver, timeouts, health), `GraphRepository` (CRUD, constraints, transactions), vocabulary and PostgreSQL ↔ Neo4j key mapping. See [NEO4J.md](NEO4J.md). |
+| `app/intelligence` | The Phase 2 engine: agent contracts and agents, structured-output LLM (`ClaudeStructuredLLM`, labelled `FixtureLLM`), text extraction, knowledge store and Neo4j sync, orchestrator, background runner. See [INTELLIGENCE_ENGINE.md](INTELLIGENCE_ENGINE.md). |
 | `app/ai` | `LLMProvider` (Claude via the Anthropic SDK, adaptive thinking, streaming, **no silent fallback**, typed errors, recorded identity) and `EmbeddingProvider` (Voyage). See [AI_PROVIDERS.md](AI_PROVIDERS.md). |
 
 ## Request lifecycle
@@ -74,15 +75,15 @@ The two are joined by `graph_key`: every Neo4j node/relationship has a `key` pro
 
 Dependency health endpoints always return 200 with a status field so dashboards can distinguish "API down" from "dependency down". Internal error text is never returned.
 
-## AI integration (foundation only)
+## AI integration
 
 - Credentials are read from server environment variables only. The frontend never sees them.
-- The Claude provider uses model `claude-opus-5-5` (configurable), adaptive thinking with an explicit `effort`, and streams responses. Phase 1.5 **removed** Anthropic's server-side `fallbacks`; fallback is now opt-in, refusal-only and recorded. Refusals raise `ProviderRefusalError`.
-- Nothing in Phase 1 calls either provider; they exist so Phase 2 extraction can depend on interfaces, not SDKs.
+- Agents call Claude (`claude-opus-5-5`, configurable) through `ClaudeStructuredLLM`, which uses streaming, adaptive thinking, an explicit `effort`, and JSON-schema structured outputs re-validated with Pydantic. There is no server-side fallback and no SDK retries. Refusals and truncation raise typed errors.
+- Investigations run in a bounded thread pool inside the API process. State lives in PostgreSQL, so a restart marks in-flight runs `interrupted` and they can be resumed. Lifecycle, agents and guarantees: [INTELLIGENCE_ENGINE.md](INTELLIGENCE_ENGINE.md).
 
 ## Frontend
 
-See FRONTEND_ARCHITECTURE.md. Key decisions: route-level code splitting; the Three.js bundle is loaded only by the hero; graph rendering uses Canvas 2D with a precomputed d3-force layout and an on-demand animation loop.
+See FRONTEND_ARCHITECTURE.md. Key decisions: route-level code splitting. Three.js is loaded only by the landing hero and by the lazily imported investigation knowledge graph (`KnowledgeGraph3D`). The sample universe uses Canvas 2D with a precomputed d3-force layout. Running investigations are shown by polling their recorded state; the UI never animates activity that the server didn't record.
 
 ## Security
 

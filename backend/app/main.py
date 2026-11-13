@@ -19,13 +19,19 @@ logger = logging.getLogger("astrion")
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     logger.info(
         "startup",
         extra={"environment": settings.environment, "version": __version__, "neo4j_configured": settings.neo4j_configured},
     )
+    runner = app.state.investigation_runner
+    try:
+        runner.recover()  # runs left in flight by a previous process become resumable
+    except Exception:  # database may be down at startup; health checks will report it
+        logger.exception("could not recover stale investigations")
     yield
+    runner.shutdown()
     get_graph_client().close()
     logger.info("shutdown")
 
@@ -53,6 +59,9 @@ def create_app() -> FastAPI:
     )
     register_exception_handlers(app)
     app.include_router(api_router)
+    from app.intelligence.wiring import build_runner
+
+    app.state.investigation_runner = build_runner(settings)
     return app
 
 

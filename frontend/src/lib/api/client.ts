@@ -1,4 +1,18 @@
 import type {
+  AgentExecution,
+  ClaimRecord,
+  ContradictionRecord,
+  EntityDetail,
+  GraphChangeRecord,
+  HypothesisRecord,
+  IntelligenceStatus,
+  Investigation,
+  InvestigationComparison,
+  InvestigationCreate,
+  InvestigationDetail,
+  InvestigationReport,
+  VerificationRecord,
+  WorkspaceGraph,
   ApiErrorBody,
   AuthTokens,
   DependencyHealth,
@@ -208,6 +222,31 @@ export const api = {
     return request<SourceDocument>(`/v1/sources/${sourceId}/documents/upload`, { method: 'POST', body: form });
   },
   downloadDocument: (documentId: string) => requestBlob(`/v1/documents/${documentId}/content`),
+  listWorkspaceDocuments: (workspaceId: string) => request<Page<SourceDocument>>(`/v1/workspaces/${workspaceId}/documents`, { query: { limit: 200 } }),
+
+  // Intelligence engine. Runs execute on the server; the page only reads their recorded state.
+  intelligenceStatus: () => request<IntelligenceStatus>('/v1/intelligence/status'),
+  listInvestigations: (workspaceId: string) => request<Page<Investigation>>(`/v1/workspaces/${workspaceId}/investigations`, { query: { limit: 100 } }),
+  createInvestigation: (workspaceId: string, body: InvestigationCreate) =>
+    request<Investigation>(`/v1/workspaces/${workspaceId}/investigations`, { method: 'POST', body: json(body) }),
+  getInvestigation: (id: string) => request<InvestigationDetail>(`/v1/investigations/${id}`),
+  startInvestigation: (id: string) => request<InvestigationDetail>(`/v1/investigations/${id}/start`, { method: 'POST' }),
+  resumeInvestigation: (id: string) => request<InvestigationDetail>(`/v1/investigations/${id}/resume`, { method: 'POST' }),
+  cancelInvestigation: (id: string) => request<InvestigationDetail>(`/v1/investigations/${id}/cancel`, { method: 'POST' }),
+  listExecutions: (id: string) => request<AgentExecution[]>(`/v1/investigations/${id}/executions`),
+  listClaims: (id: string) => request<ClaimRecord[]>(`/v1/investigations/${id}/claims`),
+  listHypotheses: (id: string) => request<HypothesisRecord[]>(`/v1/investigations/${id}/hypotheses`),
+  listContradictions: (id: string) => request<ContradictionRecord[]>(`/v1/investigations/${id}/contradictions`),
+  listVerifications: (id: string) => request<VerificationRecord[]>(`/v1/investigations/${id}/verifications`),
+  listReports: (id: string) => request<InvestigationReport[]>(`/v1/investigations/${id}/reports`),
+  listGraphChanges: (id: string) => request<GraphChangeRecord[]>(`/v1/investigations/${id}/graph-changes`),
+  compareInvestigations: (workspaceId: string, ids: string[]) =>
+    request<InvestigationComparison>(`/v1/workspaces/${workspaceId}/investigations/compare`, { query: { ids: ids.join(',') } }),
+  workspaceGraph: (workspaceId: string, query: { investigation_id?: string; include_claims?: boolean; limit?: number } = {}) =>
+    request<WorkspaceGraph>(`/v1/workspaces/${workspaceId}/graph`, {
+      query: { investigation_id: query.investigation_id, limit: query.limit, include_claims: query.include_claims ? 'true' : undefined },
+    }),
+  entityDetail: (workspaceId: string, entityId: string) => request<EntityDetail>(`/v1/workspaces/${workspaceId}/graph/entities/${entityId}`),
 };
 
 export const API_BASE_URL = BASE_URL;

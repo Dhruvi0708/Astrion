@@ -33,7 +33,8 @@ export default defineConfig({
       url: 'http://127.0.0.1:8000/api/v1/health',
       reuseExistingServer: reuse,
       timeout: 60_000,
-      env: { ASTRION_LOG_JSON: 'false', ASTRION_LOGIN_MAX_FAILURES: '50' },
+      // Deterministic, labelled fixture agents (allowed only in development/test): e2e never calls a paid model.
+      env: { ASTRION_LOG_JSON: 'false', ASTRION_LOGIN_MAX_FAILURES: '50', ASTRION_LLM_PROVIDER: 'fixture' },
     },
     {
       command: 'npm run dev -- --port 5173 --strictPort',
