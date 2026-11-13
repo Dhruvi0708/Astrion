@@ -112,10 +112,38 @@ Document = { id, workspace_id, source_id, title, media_type, byte_size, content_
              original_filename, storage_backend, has_file /* true when ASTRION stores the file */,
              processing_status: "registered" | "queued" | "processing" | "processed" | "failed", created_at, updated_at }
 ```
-`processing_status` stays `registered` — there is no processing pipeline yet. The internal `storage_key` is never returned.
+`processing_status` moves to `processed` (or `failed` with a reason) when an investigation extracts the document's text. The internal `storage_key` is never returned.
+
+### `GET /workspaces/{workspace_id}/documents` → `Page<Document>` | 404
+All documents in a workspace (used to choose an investigation's scope).
+
+## Intelligence (Phase 2)
+
+All routes are owner-scoped: another user's investigation, workspace or entity is a 404. See [INTELLIGENCE_ENGINE.md](INTELLIGENCE_ENGINE.md) for semantics. Types are mirrored in `frontend/src/lib/api/intelligence-types.ts`.
+
+| Method & path | Result |
+|---|---|
+| `GET /intelligence/status` | `{configured, provider, model, is_fixture, neo4j_configured, detail}`. Which provider would run investigations. |
+| `POST /workspaces/{ws}/investigations` | 201 `Investigation`. Body `{title, question (≥10 chars), document_ids[]}`; empty `document_ids` = all workspace documents; documents from other workspaces → 404. |
+| `GET /workspaces/{ws}/investigations` | `Page<Investigation>`, newest first. |
+| `GET /workspaces/{ws}/investigations/compare?ids=a,b` | Side-by-side status, answer status, hypotheses and shared entities (2–5 ids). |
+| `GET /investigations/{id}` · `/status` | `InvestigationDetail`: the investigation plus `plan`, per-stage `progress` for the current run, `counts`, `can_start`/`can_resume`/`can_cancel`. Poll `/status` while `queued`/`running`/`cancelling`. |
+| `POST /investigations/{id}/start` | 202. Starts a new run (from draft, completed, failed, cancelled or interrupted). 409 while active; **503 `llm_unavailable`** when no provider is configured. |
+| `POST /investigations/{id}/resume` | 202. Continues the current run from `failed`/`interrupted`, reusing succeeded steps. 409 otherwise. |
+| `POST /investigations/{id}/cancel` | 202. Queued → `cancelled`; running → `cancelling` → `cancelled` at the next step boundary. 409 when nothing is running. |
+| `GET /investigations/{id}/executions` | Every agent execution (all runs and attempts): step key, role, status, attempt, parent, `depends_on`, input, output (`result`, `notes`), provider, requested/served model, request id, tokens, estimated cost, duration, error. |
+| `GET /investigations/{id}/claims` | Claims found by this investigation, each with subject entity, document, source and evidence (`quote`, chunk `locator`). |
+| `GET /investigations/{id}/hypotheses` | Statement, rationale, test plan, status, confidence + `confidence_method` (inputs and components), supporting/opposing claim ids, latest verification. |
+| `GET /investigations/{id}/contradictions` | Both claims with evidence, kind, genuine?, severity, explanation, verification. |
+| `GET /investigations/{id}/verifications` | Verdict, reasoning, issues, missing evidence per hypothesis/contradiction. |
+| `GET /investigations/{id}/reports` | One report per completed run, newest first. `content` includes findings citing claim refs and `citations[ref]` = claim → evidence → document → source, plus `generated_by.is_fixture`. |
+| `GET /investigations/{id}/graph-changes` | The knowledge-graph change log written by this investigation. |
+| `GET /workspaces/{ws}/graph?investigation_id&include_claims&limit` | `{source: "neo4j" \| "postgres", fallback_reason, nodes[], edges[]}`. Read from Neo4j when available, otherwise from the PostgreSQL registry (and says so). |
+| `GET /workspaces/{ws}/graph/entities/{entity_id}` | Entity with aliases, mentions, claims (with evidence and source) and relationships (with supporting claim ids). |
+| `GET /workspaces/{ws}/graph/consistency` | PostgreSQL vs Neo4j: counts and missing/orphaned keys, `consistent`. |
 
 ## Not in v1 (intentionally)
 
-No endpoints exist for parsing/extraction, claims, graph queries, investigations, agents, hypotheses or simulations. The UI for those areas uses labelled sample data. They will be added with their engines (see DEVELOPMENT_ROADMAP.md) rather than as placeholder endpoints.
+No endpoints exist for simulations, human verification of hypotheses, or editing extracted knowledge. They will be added with their features rather than as placeholder endpoints.
 
 The TypeScript mirror of this contract is `frontend/src/lib/api/types.ts`.

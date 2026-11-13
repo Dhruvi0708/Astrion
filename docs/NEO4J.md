@@ -42,7 +42,7 @@ Errors are translated: `AuthError` / unreachable → `GraphUnavailableError`; mi
 - `key`, `workspace_id`, `created_at`, `updated_at` can't be overwritten through properties; property values must be primitives or lists of primitives.
 
 ## Schema (`ensure_schema()`, idempotent)
-- Uniqueness constraint on `(workspace_id, key)` for each label: `Entity`, `Claim`, `Source`, `Document`, `Hypothesis`.
+- Uniqueness constraint on `(workspace_id, key)` for each label: `Entity`, `Claim`, `Source`, `Document`, `Hypothesis`, `Investigation`.
 - Index on `workspace_id` per label.
 - Index on `(workspace_id, key)` per relationship type.
 
@@ -56,9 +56,12 @@ PostgreSQL is the identity authority. Graph keys are `<prefix>:<postgres uuid>`:
 | `src` | `sources.id` | `(:Source)` |
 | `doc` | `documents.id` | `(:Document)` |
 | `hyp` | `hypotheses.id` | `(:Hypothesis)` |
-| `rel` | `graph_relationships.id` | relationship |
+| `inv` | `investigations.id` | `(:Investigation)` |
+| `rel` | `graph_relationships.id` | entity relationship |
+| uuid5 | `link_key(type, from, to)` | provenance edges (`ABOUT`, `EVIDENCED_BY`, …), stable across re-syncs |
 
-The same string is stored in `graph_entities.graph_key` / `graph_relationships.graph_key`. Phase 2 writes will go PostgreSQL first (registry + evidence), then Neo4j via idempotent `MERGE` on the key.
+The same string is stored in `graph_entities.graph_key` / `graph_relationships.graph_key`. ## How investigations write the graph
+`sync_investigation_graph()` (`app/intelligence/knowledge_store.py`) projects one investigation in a single managed transaction: Investigation, Source and Document nodes, Entity and Claim nodes (`FOUND`, `ABOUT`), `EVIDENCED_BY {quote}` to the document, entity predicate edges with `support_count` and `claim_ids`, hypotheses (`PROPOSED`, `SUPPORTED_BY`, `OPPOSED_BY`) and `CONTRADICTS`. Everything is `MERGE`d on keys, so re-running is idempotent. When Neo4j is configured but fails, the sync step fails the run (resumable) and PostgreSQL keeps the knowledge. Reads (`GET /workspaces/{id}/graph`) use Neo4j when available and fall back to the PostgreSQL registry, saying so in `source` and `fallback_reason`.
 
 ## Verification
-`backend/tests/test_neo4j_integration.py` runs against a **real** server when `ASTRION_TEST_NEO4J_URI` is set (skipped otherwise — never mocked). In Phase 1.5 it was run locally against Neo4j 5.26.0 Community on Java 21 (15/15 passed), and CI runs it against the `neo4j:5.26-community` service container.
+`backend/tests/test_neo4j_integration.py` runs against a **real** server when `ASTRION_TEST_NEO4J_URI` is set (skipped otherwise — never mocked). In Phase 1.5 it was run locally against Neo4j 5.26.0 Community on Java 21 (15/15 passed), and CI runs it against the `neo4j:5.26-community` service container. Phase 2 adds `tests/test_intelligence_neo4j.py`: a full investigation synced to a real server, checked for a consistent registry, evidenced claims, idempotent re-sync and cross-workspace isolation (passed against Neo4j 5.26.0).

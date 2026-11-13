@@ -155,5 +155,13 @@ def list_documents(db: Session, user: User, source_id: uuid.UUID, limit: int, of
     return [DocumentRead.model_validate(d) for d in rows], total
 
 
+def list_workspace_documents(db: Session, user: User, workspace_id: uuid.UUID, limit: int, offset: int) -> tuple[list[DocumentRead], int]:
+    get_owned_workspace(db, user, workspace_id)
+    where = Document.workspace_id == workspace_id
+    total = db.scalar(select(func.count()).select_from(Document).where(where)) or 0
+    rows = db.scalars(select(Document).where(where).order_by(Document.created_at.desc(), Document.id).limit(limit).offset(offset))
+    return [DocumentRead.model_validate(d) for d in rows], total
+
+
 def get_document(db: Session, user: User, document_id: uuid.UUID) -> DocumentRead:
     return DocumentRead.model_validate(get_owned_document(db, user, document_id))

@@ -30,6 +30,8 @@ export default defineConfig(({ mode }) => {
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
       css: false,
+      // Unit tests only; e2e/ holds Playwright specs, run with `npm run e2e`.
+      include: ['src/**/*.test.{ts,tsx}'],
     },
   };
 });

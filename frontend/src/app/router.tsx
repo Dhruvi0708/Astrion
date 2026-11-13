@@ -10,6 +10,8 @@ const LandingPage = lazy(() => import('@/features/landing/LandingPage'));
 const OverviewPage = lazy(() => import('@/features/overview/OverviewPage'));
 const UniverseExplorerPage = lazy(() => import('@/features/universe/UniverseExplorerPage'));
 const InvestigationRoomPage = lazy(() => import('@/features/investigation/InvestigationRoomPage'));
+const InvestigationsPage = lazy(() => import('@/features/workbench/InvestigationsPage'));
+const InvestigationWorkbenchPage = lazy(() => import('@/features/workbench/InvestigationWorkbenchPage'));
 const IntelligenceNetworkPage = lazy(() => import('@/features/agents/IntelligenceNetworkPage'));
 const DiscoveryLabPage = lazy(() => import('@/features/discovery/DiscoveryLabPage'));
 const SimulationLabPage = lazy(() => import('@/features/simulation/SimulationLabPage'));
@@ -48,7 +50,9 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="/app/overview" replace /> },
       { path: 'overview', element: <OverviewPage /> },
       { path: 'universe', element: <UniverseExplorerPage /> },
-      { path: 'investigations', element: <InvestigationRoomPage /> },
+      { path: 'investigations', element: <InvestigationsPage /> },
+      { path: 'investigations/sample', element: <InvestigationRoomPage /> },
+      { path: 'investigations/:id', element: <InvestigationWorkbenchPage /> },
       { path: 'intelligence', element: <IntelligenceNetworkPage /> },
       { path: 'discovery', element: <DiscoveryLabPage /> },
       { path: 'simulation', element: <SimulationLabPage /> },

@@ -59,7 +59,18 @@ class Settings(BaseSettings):
     llm_model: str = Field(default="claude-opus-5-5", alias="ASTRION_LLM_MODEL")
     # Explicit, ordered fallback models. Empty (default) = never fall back.
     llm_fallback_models: Annotated[list[str], NoDecode] = Field(default=[], alias="ASTRION_LLM_FALLBACK_MODELS")
+    # "anthropic" (real model) or "fixture" (deterministic rules; development/test only, always labelled).
+    llm_provider: Literal["anthropic", "fixture"] = Field(default="anthropic", alias="ASTRION_LLM_PROVIDER")
     voyage_api_key: SecretStr | None = Field(default=None, alias="VOYAGE_API_KEY")
+
+    # Intelligence engine
+    agent_max_attempts: int = Field(default=3, ge=1, le=6, alias="ASTRION_AGENT_MAX_ATTEMPTS")
+    agent_retry_backoff_seconds: float = Field(default=2.0, ge=0, alias="ASTRION_AGENT_RETRY_BACKOFF_SECONDS")
+    agent_timeout_seconds: float = Field(default=300.0, gt=0, alias="ASTRION_AGENT_TIMEOUT_SECONDS")
+    agent_max_parallel: int = Field(default=4, ge=1, le=16, alias="ASTRION_AGENT_MAX_PARALLEL")
+    research_chars_per_call: int = Field(default=24000, ge=2000, alias="ASTRION_RESEARCH_CHARS_PER_CALL")
+    max_claims_for_reasoning: int = Field(default=80, ge=5, alias="ASTRION_MAX_CLAIMS_FOR_REASONING")
+    max_concurrent_investigations: int = Field(default=2, ge=1, alias="ASTRION_MAX_CONCURRENT_INVESTIGATIONS")
     embedding_model: str = Field(default="voyage-3.5", alias="ASTRION_EMBEDDING_MODEL")
 
     @field_validator("cors_origins", "llm_fallback_models", mode="before")

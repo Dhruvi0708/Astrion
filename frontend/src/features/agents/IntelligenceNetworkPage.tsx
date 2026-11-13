@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { History } from 'lucide-react';
-import { Badge, PlannedBadge, SampleBadge } from '@/components/ui/Badge';
+import { Badge, SampleBadge } from '@/components/ui/Badge';
 import { Panel } from '@/components/ui/Panel';
-import { EmptyState } from '@/components/ui/States';
 import { Notice, Page, PageHeader } from '@/components/layout/PageHeader';
 import { AGENTS, agentByRole, SAMPLE_SEQUENCE, type AgentRole } from '@/data/sample/agents';
 import { STATUS_META } from '@/data/sample/discoveries';
 import { cn } from '@/lib/cn';
 import { AgentWorkflow } from './components/AgentWorkflow';
+import { LiveEngine } from './components/LiveEngine';
 import { SampleWalkthrough } from './components/SampleWalkthrough';
 
 /** Handoff counts between roles, computed from the sample sequence. */
@@ -73,12 +72,12 @@ export default function IntelligenceNetworkPage() {
       <PageHeader
         eyebrow="Intelligence Network"
         title="Intelligence Network"
-        badges={<PlannedBadge label="Engine planned" />}
         description="The interface for ASTRION’s multi-agent investigation system: roles, handoffs, execution history and verification status."
       />
-      <Notice tone="planned" className="mt-5">
-        No agents are deployed in Phase 1. Role definitions describe the planned design; the walkthrough is a hand-written sample. Agent executions will be
-        recorded in the <code className="font-mono text-ink">agent_executions</code> table, which already exists in the database schema.
+      <LiveEngine />
+      <Notice tone="sample" className="mt-8">
+        Everything below this line is the Phase 1 design illustration: a hand-written walkthrough with sample roles. It is kept as a reference and is not
+        connected to the engine above.
       </Notice>
 
       <section aria-labelledby="roles-title" className="mt-8">
@@ -100,7 +99,7 @@ export default function IntelligenceNetworkPage() {
             <p className="mt-1.5 text-[0.85rem] text-ink-muted">{agent.outputs}</p>
           </div>
           <div className="flex items-start md:justify-end">
-            <Badge tone="planned">Not deployed</Badge>
+            <Badge tone="sample">Sample role</Badge>
           </div>
         </div>
       </section>
@@ -135,14 +134,6 @@ export default function IntelligenceNetworkPage() {
           </p>
         </Panel>
       </div>
-
-      <Panel title="Execution history" eyebrow="Records" className="mt-4">
-        <EmptyState
-          icon={<History size={17} />}
-          title="No agent executions recorded"
-          description="Executions will appear here with inputs, outputs, model, timing and parent handoff once the agent engine is deployed."
-        />
-      </Panel>
     </Page>
   );
 }

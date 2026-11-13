@@ -2,16 +2,17 @@
 
 ASTRION turns fragmented information into an interconnected, evolving knowledge universe: sources become documents, documents yield claims and evidence, claims connect into a traceable knowledge graph, and agents investigate that graph to surface contradictions, gaps and hypotheses.
 
-**Current state: Phase 1 foundation + Phase 1.5 hardening.** The full visual product (landing page, 3D universe, eight app environments) runs on a real, authenticated API with per-user workspaces, sources and stored document files, a tested Neo4j graph layer, and auditable AI provider plumbing. It does **not** yet parse documents, extract knowledge, run agents or simulate. Every screen labels sample content and planned features as such.
+**Current state: Phase 2, the core intelligence engine.** Ask a question over your documents and seven agents (Orchestrator, Research, Knowledge, Hypothesis, Contradiction, Verification, Synthesis) produce evidence-checked claims, an evolving knowledge graph (PostgreSQL + Neo4j), hypotheses with a transparent confidence method, contradictions, verification verdicts and a cited report. Every step is recorded and resumable. The engine is in [docs/INTELLIGENCE_ENGINE.md](docs/INTELLIGENCE_ENGINE.md).
+
+> **Not yet verified with real Claude output.** No API key was available while building Phase 2. Tests and the e2e flow use the deterministic *fixture* provider, which the UI always labels "not AI".
 
 | What works today | What is sample / planned |
 |---|---|
-| Accounts: register, sign in, sign out, sign out everywhere, silent session refresh | Knowledge graph contents (sample “Coastal Resilience” graph) |
-| Per-user workspaces, sources, document metadata (PostgreSQL); cross-user access blocked | Document parsing, claim/evidence extraction |
-| Document file upload/download with validation (local or S3-compatible storage) | Multi-agent investigations (UI + data model only) |
-| Neo4j graph repository: CRUD, constraints, transactions (not yet fed by extraction) | Discovery engine (sample hypotheses, contradictions, gaps) |
-| Live health checks: API, PostgreSQL, Neo4j | Simulation engine (transparent toy model, clearly labelled) |
-| Claude / Voyage provider abstractions with explicit, recorded fallback | Email verification, password reset, sharing / roles |
+| Accounts, sessions, per-user workspaces, sources and document files; cross-user access blocked | Discovery Laboratory (sample hypotheses, gaps) |
+| Investigations: create, run, cancel, resume after failure or restart, history, comparison | Simulation engine (transparent toy model, clearly labelled) |
+| Text extraction (PDF, txt, md, csv, json, html) and verbatim-evidence claims | `.docx`/`.xlsx`, OCR, embeddings/semantic retrieval |
+| Knowledge graph with entity dedup, relationship support, change log, Neo4j sync + consistency check | Human verification workflow for hypotheses |
+| Workbench: live agent trace, claims, hypotheses, contradictions, 3D knowledge graph, cited report | Email verification, password reset, sharing / roles |
 
 ## Repository layout
 
@@ -51,6 +52,8 @@ uvicorn app.main:app --reload --port 8000
 ```
 API docs: http://127.0.0.1:8000/api/docs · verify the AI model id (no tokens billed): `python -m app.ai.check`
 
+Investigations need `ANTHROPIC_API_KEY`. For offline development without a key, run the API with `ASTRION_LLM_PROVIDER=fixture` (deterministic rules, labelled "not AI", refused outside development/test).
+
 ### 3. Frontend
 ```bash
 cd frontend
@@ -81,6 +84,8 @@ All backend variables are documented in [`backend/.env.example`](backend/.env.ex
 | `ASTRION_S3_BUCKET` / `_ENDPOINT_URL` / `_REGION` / `_ACCESS_KEY_ID` / `_SECRET_ACCESS_KEY` | — | S3-compatible storage |
 | `ANTHROPIC_API_KEY` / `ASTRION_LLM_MODEL` | — / `claude-opus-5-5` | Claude provider (server-side only) |
 | `ASTRION_LLM_FALLBACK_MODELS` | empty | Explicit fallback after refusals only; empty = never |
+| `ASTRION_LLM_PROVIDER` | `anthropic` | `fixture` = deterministic rules for development/test (not AI) |
+| `ASTRION_AGENT_*`, `ASTRION_MAX_*` | see `.env.example` | Retries, timeouts, parallelism and limits for investigations |
 | `VOYAGE_API_KEY` / `ASTRION_EMBEDDING_MODEL` | — / `voyage-3.5` | Embeddings |
 
 Frontend (`frontend/.env.example`): `VITE_API_BASE_URL` (default `/api`) and `ASTRION_API_PROXY_TARGET` (dev proxy target). No secrets are read by, or bundled into, the frontend.
@@ -110,6 +115,6 @@ Details: [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) · CI: [.github/wo
 - [Product requirements](docs/PRODUCT_REQUIREMENTS.md) · [Development roadmap](docs/DEVELOPMENT_ROADMAP.md)
 - [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Frontend architecture](docs/FRONTEND_ARCHITECTURE.md) · [Design system](docs/DESIGN_SYSTEM.md)
 - [Authentication, authorization & security](docs/SECURITY_AND_AUTH.md)
-- [Document storage](docs/STORAGE.md) · [Neo4j](docs/NEO4J.md) · [AI providers](docs/AI_PROVIDERS.md)
+- [Intelligence engine](docs/INTELLIGENCE_ENGINE.md) · [Document storage](docs/STORAGE.md) · [Neo4j](docs/NEO4J.md) · [AI providers](docs/AI_PROVIDERS.md)
 - [Database schema](docs/DATABASE_SCHEMA.md) · [API contract](docs/API_CONTRACT.md)
 - [Testing strategy & CI](docs/TESTING_STRATEGY.md)

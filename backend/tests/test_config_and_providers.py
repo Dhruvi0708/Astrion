@@ -46,8 +46,10 @@ def test_unconfigured_graph_is_honest():
 
 def test_graph_schema_statements_cover_labels():
     assert all("IF NOT EXISTS" in s for s in SCHEMA_STATEMENTS)
-    # 5 node constraints + 5 node indexes + 8 relationship indexes
-    assert len(SCHEMA_STATEMENTS) == 18
+    from app.graph.model import NodeLabel, RelType
+
+    # one constraint + one index per label, one index per relationship type
+    assert len(SCHEMA_STATEMENTS) == 2 * len(NodeLabel) + len(RelType)
 
 
 @pytest.mark.parametrize(("raw", "slug"), [("Café Résumé", "cafe-resume"), ("***", "workspace"), ("A  B", "a-b")])

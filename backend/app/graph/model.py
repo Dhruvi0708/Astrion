@@ -31,17 +31,45 @@ class NodeLabel(StrEnum):
     SOURCE = "Source"
     DOCUMENT = "Document"
     HYPOTHESIS = "Hypothesis"
+    INVESTIGATION = "Investigation"
 
 
 class RelType(StrEnum):
+    # Entity -> Entity predicates. Extraction may only emit these (see ENTITY_PREDICATES).
     INFLUENCES = "INFLUENCES"
+    CAUSES = "CAUSES"
     CORRELATES_WITH = "CORRELATES_WITH"
     PART_OF = "PART_OF"
+    ASSOCIATED_WITH = "ASSOCIATED_WITH"
+    PRECEDES = "PRECEDES"
+    LOCATED_IN = "LOCATED_IN"
+    MEASURES = "MEASURES"
+    # Provenance and reasoning edges.
+    ABOUT = "ABOUT"  # Claim -> Entity
+    EVIDENCED_BY = "EVIDENCED_BY"  # Claim -> Document (quote + locator on the edge)
+    FROM_SOURCE = "FROM_SOURCE"  # Document -> Source
+    CONTRADICTS = "CONTRADICTS"  # Claim -> Claim
+    SUPPORTED_BY = "SUPPORTED_BY"  # Hypothesis -> Claim
+    OPPOSED_BY = "OPPOSED_BY"  # Hypothesis -> Claim
+    FOUND = "FOUND"  # Investigation -> Claim
+    PROPOSED = "PROPOSED"  # Investigation -> Hypothesis
+    # Phase 1 vocabulary, kept for compatibility.
     SUPPORTS = "SUPPORTS"
-    CONTRADICTS = "CONTRADICTS"
     MENTIONED_IN = "MENTIONED_IN"
-    DERIVED_FROM = "DERIVED_FROM"  # document -> source
+    DERIVED_FROM = "DERIVED_FROM"
     HYPOTHESIZED = "HYPOTHESIZED"
+
+
+ENTITY_PREDICATES: tuple[RelType, ...] = (
+    RelType.INFLUENCES,
+    RelType.CAUSES,
+    RelType.CORRELATES_WITH,
+    RelType.PART_OF,
+    RelType.ASSOCIATED_WITH,
+    RelType.PRECEDES,
+    RelType.LOCATED_IN,
+    RelType.MEASURES,
+)
 
 
 KEY_PREFIX: dict[NodeLabel, str] = {
@@ -50,9 +78,13 @@ KEY_PREFIX: dict[NodeLabel, str] = {
     NodeLabel.SOURCE: "src",
     NodeLabel.DOCUMENT: "doc",
     NodeLabel.HYPOTHESIS: "hyp",
+    NodeLabel.INVESTIGATION: "inv",
 }
 RELATIONSHIP_PREFIX = "rel"
-_KEY_RE = re.compile(r"^(ent|clm|src|doc|hyp|rel):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+# Namespace for deterministic keys of link edges that have no PostgreSQL row of their own
+# (e.g. Claim -ABOUT-> Entity). uuid5(namespace, "<type>|<from>|<to>") is stable across re-syncs.
+LINK_NAMESPACE = uuid.UUID("6f1b9c52-3d0a-4e7e-9a35-0c6f4a2d8b11")
+_KEY_RE = re.compile(r"^(ent|clm|src|doc|hyp|inv|rel):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 
 def node_key(label: NodeLabel, postgres_id: uuid.UUID) -> str:
@@ -61,6 +93,11 @@ def node_key(label: NodeLabel, postgres_id: uuid.UUID) -> str:
 
 def relationship_key(postgres_id: uuid.UUID) -> str:
     return f"{RELATIONSHIP_PREFIX}:{postgres_id}"
+
+
+def link_key(rel_type: RelType, from_key: str, to_key: str) -> str:
+    """Deterministic key for a link edge, so re-syncing never creates duplicates."""
+    return f"{RELATIONSHIP_PREFIX}:{uuid.uuid5(LINK_NAMESPACE, f'{rel_type.value}|{from_key}|{to_key}')}"
 
 
 def parse_key(key: str) -> tuple[str, uuid.UUID]:

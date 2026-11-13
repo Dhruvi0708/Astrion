@@ -13,7 +13,7 @@ from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Index, Inte
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, JSONType, Timestamps, UUIDPrimaryKey
-from app.models.enums import ClaimStatus, EntityStatus, EvidenceStance, ExtractionMethod, RelationshipStatus, db_enum
+from app.models.enums import ClaimKind, ClaimStatus, EntityStatus, EvidenceStance, ExtractionMethod, RelationshipStatus, db_enum
 
 
 class Claim(UUIDPrimaryKey, Timestamps, Base):
@@ -32,6 +32,14 @@ class Claim(UUIDPrimaryKey, Timestamps, Base):
     extraction_method: Mapped[ExtractionMethod] = mapped_column(db_enum(ExtractionMethod, "extraction_method"), nullable=False)
     extractor: Mapped[str | None] = mapped_column(String(120))  # model id or user reference
     confidence: Mapped[float | None] = mapped_column(Float)
+    kind: Mapped[ClaimKind] = mapped_column(db_enum(ClaimKind, "claim_kind"), default=ClaimKind.explicit, nullable=False)
+    investigation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("investigations.id", ondelete="SET NULL"), index=True)
+    extraction_execution_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_executions.id", ondelete="SET NULL"))
+    subject_entity_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("graph_entities.id", ondelete="SET NULL"))
+    # Time the claim refers to, as stated in the evidence (free text such as 2019-2021); not parsed.
+    temporal_scope: Mapped[str | None] = mapped_column(String(120))
+    normalized_statement: Mapped[str | None] = mapped_column(String(600), index=True)
+    graph_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Evidence(UUIDPrimaryKey, Timestamps, Base):
@@ -52,6 +60,7 @@ class GraphEntity(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "graph_entities"
     __table_args__ = (
         UniqueConstraint("workspace_id", "graph_key", name="uq_graph_entities_workspace_key"),
+        UniqueConstraint("workspace_id", "entity_type", "normalized_name", name="uq_graph_entities_dedup"),
         Index("ix_graph_entities_workspace_type", "workspace_id", "entity_type"),
     )
 
@@ -64,12 +73,19 @@ class GraphEntity(UUIDPrimaryKey, Timestamps, Base):
     first_seen_document_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("documents.id", ondelete="SET NULL"))
     merged_into_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("graph_entities.id", ondelete="SET NULL"))
     properties: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    # Deduplication key: lower-cased, punctuation-free, whitespace-collapsed name.
+    normalized_name: Mapped[str | None] = mapped_column(String(500))
+    aliases: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    mention_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    graph_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class GraphRelationship(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "graph_relationships"
     __table_args__ = (
         UniqueConstraint("workspace_id", "graph_key", name="uq_graph_relationships_workspace_key"),
+        UniqueConstraint("workspace_id", "source_entity_id", "target_entity_id", "relation_type", name="uq_graph_relationships_triple"),
         Index("ix_graph_relationships_source", "source_entity_id"),
         Index("ix_graph_relationships_target", "target_entity_id"),
         CheckConstraint("confidence IS NULL OR (confidence >= 0 AND confidence <= 1)", name="confidence_range"),
@@ -85,6 +101,36 @@ class GraphRelationship(UUIDPrimaryKey, Timestamps, Base):
     confidence: Mapped[float | None] = mapped_column(Float)
     evidence_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("evidence.id", ondelete="SET NULL"), index=True)
     properties: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    support_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    graph_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RelationshipClaim(Base):
+    """Every claim that supports a relationship. A relationship with no claims has no provenance."""
+
+    __tablename__ = "relationship_claims"
+
+    relationship_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("graph_relationships.id", ondelete="CASCADE"), primary_key=True)
+    claim_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claims.id", ondelete="CASCADE"), primary_key=True)
+
+
+class InvestigationClaim(Base):
+    """Which investigations found a claim. A claim is stored once per document (``Claim.investigation_id``
+    is the run that first extracted it); every later investigation that finds it again links to it here."""
+
+    __tablename__ = "investigation_claims"
+
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), primary_key=True)
+    claim_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claims.id", ondelete="CASCADE"), primary_key=True, index=True)
+
+
+def investigation_claim_ids(investigation_id: uuid.UUID):  # noqa: ANN201
+    """Subquery of claim ids an investigation found (new or already known)."""
+    from sqlalchemy import select
+
+    return select(InvestigationClaim.claim_id).where(InvestigationClaim.investigation_id == investigation_id)
 
 
 class GraphSnapshot(UUIDPrimaryKey, Timestamps, Base):

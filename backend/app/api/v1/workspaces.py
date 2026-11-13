@@ -4,7 +4,7 @@ from fastapi import APIRouter, status
 
 from app.api.deps import CurrentUser, DbSession, Limit, Offset
 from app.schemas.common import ErrorResponse, Page
-from app.schemas.source import SourceCreate, SourceRead
+from app.schemas.source import DocumentRead, SourceCreate, SourceRead
 from app.schemas.workspace import WorkspaceCreate, WorkspaceRead
 from app.services import sources as source_service
 from app.services import workspaces as workspace_service
@@ -37,4 +37,10 @@ def create_source(workspace_id: uuid.UUID, payload: SourceCreate, user: CurrentU
 @router.get("/{workspace_id}/sources", response_model=Page[SourceRead], responses=ERRORS, summary="List sources in a workspace")
 def list_sources(workspace_id: uuid.UUID, user: CurrentUser, db: DbSession, limit: Limit = 50, offset: Offset = 0) -> Page[SourceRead]:
     items, total = source_service.list_sources(db, user, workspace_id, limit, offset)
+    return Page(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.get("/{workspace_id}/documents", response_model=Page[DocumentRead], responses=ERRORS, summary="List documents across a workspace")
+def list_documents(workspace_id: uuid.UUID, user: CurrentUser, db: DbSession, limit: Limit = 50, offset: Offset = 0) -> Page[DocumentRead]:
+    items, total = source_service.list_workspace_documents(db, user, workspace_id, limit, offset)
     return Page(items=items, total=total, limit=limit, offset=offset)

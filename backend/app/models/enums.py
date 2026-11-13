@@ -83,10 +83,14 @@ class RelationshipStatus(StrEnum):
 
 
 class InvestigationStatus(StrEnum):
-    draft = "draft"
-    active = "active"
-    paused = "paused"
-    closed = "closed"
+    draft = "draft"  # created, never run
+    queued = "queued"  # accepted for execution
+    running = "running"
+    cancelling = "cancelling"  # cancel requested; stops at the next step boundary
+    completed = "completed"  # every required step succeeded
+    failed = "failed"  # a required step failed after retries
+    cancelled = "cancelled"
+    interrupted = "interrupted"  # process stopped mid-run; can be resumed
 
 
 class HypothesisOrigin(StrEnum):
@@ -103,11 +107,14 @@ class VerificationStatus(StrEnum):
 
 
 class AgentRole(StrEnum):
-    inquirer = "inquirer"
-    cartographer = "cartographer"
-    retriever = "retriever"
-    skeptic = "skeptic"
-    verifier = "verifier"
+    system = "system"  # deterministic pipeline steps (document ingestion)
+    orchestrator = "orchestrator"
+    research = "research"
+    knowledge = "knowledge"
+    hypothesis = "hypothesis"
+    contradiction = "contradiction"
+    verification = "verification"
+    synthesis = "synthesis"
 
 
 class ExecutionStatus(StrEnum):
@@ -116,6 +123,37 @@ class ExecutionStatus(StrEnum):
     succeeded = "succeeded"
     failed = "failed"
     cancelled = "cancelled"
+    skipped = "skipped"  # nothing to do (e.g. no documents); recorded, never counted as success
+
+
+class ClaimKind(StrEnum):
+    explicit = "explicit"  # stated directly in the quoted evidence
+    inferred = "inferred"  # the agent's inference from the evidence
+
+
+class ContradictionKind(StrEnum):
+    direct = "direct"  # incompatible statements about the same thing
+    temporal = "temporal"  # conflict explained by / involving different times
+    contextual = "contextual"  # apparent conflict, different conditions or scope
+
+
+class VerificationVerdict(StrEnum):
+    supported = "supported"
+    partially_supported = "partially_supported"
+    unsupported = "unsupported"
+    insufficient_evidence = "insufficient_evidence"
+    contradicted = "contradicted"
+
+
+class GraphChangeType(StrEnum):
+    entity_created = "entity_created"
+    entity_updated = "entity_updated"
+    entity_merged = "entity_merged"
+    relationship_created = "relationship_created"
+    relationship_reinforced = "relationship_reinforced"
+    claim_added = "claim_added"
+    contradiction_linked = "contradiction_linked"
+    hypothesis_added = "hypothesis_added"
 
 
 class ScenarioStatus(StrEnum):

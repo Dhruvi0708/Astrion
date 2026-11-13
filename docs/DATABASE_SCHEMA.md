@@ -56,25 +56,40 @@ hypothesis ◄──hypothesis_evidence──► evidence
 `workspace_id`, `source_id → sources` (CASCADE), `title`, `media_type`, `byte_size` (≥ 0), `content_hash` (SHA-256 hex, indexed), `storage_uri` (external reference, metadata only), `storage_backend` (`local`/`s3`), `storage_key` (server-generated, unique; never exposed), `original_filename` (sanitised), `version` (≥ 1), `processing_status` ∈ {registered, queued, processing, processed, failed}, `processing_error`.
 
 ### claims
-`workspace_id`, `document_id → documents`, `statement`, `status` ∈ {extracted, challenged, accepted, rejected}, `extraction_method` ∈ {manual, model}, `extractor`, `confidence` ∈ [0,1].
+`workspace_id`, `document_id → documents`, `statement`, `status` ∈ {extracted, challenged, accepted, rejected}, `extraction_method` ∈ {manual, model}, `extractor` (`provider:model`), `confidence` ∈ [0,1], `kind` ∈ {explicit, inferred}, `investigation_id` (the run that first extracted it), `extraction_execution_id`, `subject_entity_id → graph_entities`, `temporal_scope`, `normalized_statement` (indexed; dedup key per document), `graph_synced_at`.
+
+### investigation_claims *(0003)*
+`(investigation_id, claim_id)` composite PK. Every investigation that found a claim, new or already known, so re-running over the same documents links knowledge instead of duplicating it.
+
+### document_chunks *(0003)*
+`document_id`, `chunk_index`, `text`, `char_start`, `char_end`, `page`. Extracted passages. Evidence `locator` points at a chunk.
 
 ### evidence
 `workspace_id`, `claim_id → claims`, `document_id → documents`, `quote`, `locator` JSONB, `stance` ∈ {supports, contradicts, context}. Index `(claim_id, stance)`.
 
 ### graph_entities
-`workspace_id`, `graph_key` (unique per workspace), `name`, `entity_type`, `description`, `status` ∈ {proposed, active, merged, retired}, `first_seen_document_id`, `merged_into_id → graph_entities`, `properties` JSONB.
+`workspace_id`, `graph_key` (unique per workspace), `name`, `entity_type`, `description`, `status` ∈ {proposed, active, merged, retired}, `first_seen_document_id`, `merged_into_id → graph_entities`, `properties` JSONB, `normalized_name`, `aliases`, `mention_count`, `last_seen_at`, `graph_synced_at`. Unique `(workspace_id, entity_type, normalized_name)` is the dedup rule.
 
 ### graph_relationships
-`workspace_id`, `graph_key` (unique per workspace), `source_entity_id`, `target_entity_id` (CHECK no self loop), `relation_type`, `status`, `confidence` ∈ [0,1], `evidence_id → evidence` (SET NULL), `properties` JSONB.
+`workspace_id`, `graph_key` (unique per workspace), `source_entity_id`, `target_entity_id` (CHECK no self loop), `relation_type`, `status`, `confidence` ∈ [0,1], `evidence_id → evidence` (SET NULL), `properties` JSONB, `support_count`, `first_seen_at`, `last_seen_at`, `graph_synced_at`. Unique per `(workspace, source, target, relation_type)`.
+
+### relationship_claims *(0003)*
+`(relationship_id, claim_id)` composite PK: every claim that asserts a relationship. A relationship with no claim is never written.
 
 ### investigations
-`workspace_id`, `created_by_id`, `title`, `question`, `summary`, `status` ∈ {draft, active, paused, closed}.
+`workspace_id`, `created_by_id`, `title`, `question`, `summary`, `status` ∈ {draft, queued, running, cancelling, completed, failed, cancelled, interrupted}, `document_ids` (scope; empty = all), `plan` JSON, `cancel_requested`, `run_count`, `error`, `started_at`, `finished_at`, `llm_provider`, `llm_model`, `input_tokens`, `output_tokens`, `cost_usd` (estimate). Migration 0003 maps old statuses (active/paused/closed) to draft.
 
 ### agent_executions
-`workspace_id`, `investigation_id`, `parent_execution_id → agent_executions` (handoff chain), `agent_role` ∈ {inquirer, cartographer, retriever, skeptic, verifier}, `status` ∈ {pending, running, succeeded, failed, cancelled}, `provider`, `model_requested` (configured), `model` (actually served), `fallback_reason` (non-null only when an explicit fallback answered), `provider_request_id`, `input`/`output` JSONB, `error`, token counts, `started_at`, `finished_at` (CHECK finished ⇒ started).
+`workspace_id`, `investigation_id`, `parent_execution_id → agent_executions` (handoff chain), `agent_role` ∈ {system, orchestrator, research, knowledge, hypothesis, contradiction, verification, synthesis} (0003 maps the Phase 1 sample roles to system), `status` ∈ {pending, running, succeeded, failed, cancelled, skipped}, `step_key` (`r{run}:{step}`), `attempt` (unique with investigation + step key), `depends_on`, `summary`, `duration_ms`, `cost_usd`, `provider`, `model_requested` (configured), `model` (actually served), `fallback_reason` (non-null only when an explicit fallback answered), `provider_request_id`, `input`/`output` JSONB, `error`, token counts, `started_at`, `finished_at` (CHECK finished ⇒ started).
 
 ### hypotheses / hypothesis_evidence
-See concepts above. `generated_by_execution_id → agent_executions` ties AI hypotheses to the run that produced them. `hypothesis_evidence (hypothesis_id, evidence_id, stance)` composite PK.
+See concepts above. `generated_by_execution_id → agent_executions` ties AI hypotheses to the run that produced them; `confidence_method` JSON stores the formula, inputs and components; `test_plan`. `hypothesis_evidence (hypothesis_id, evidence_id, stance)` composite PK.
+
+### contradictions / verification_results / investigation_reports / graph_changes *(0003)*
+- `contradictions`: `investigation_id`, `execution_id`, `claim_a_id`, `claim_b_id`, `kind` ∈ {direct, temporal, contextual}, `is_genuine`, `explanation`, `severity`; unique per `(investigation, claim_a, claim_b)`.
+- `verification_results`: `target_type` (hypothesis | contradiction), `target_id`, `verdict` ∈ {supported, partially_supported, unsupported, insufficient_evidence, contradicted}, `reasoning`, `issues`, `missing_evidence`, `checked_claim_ids`, `execution_id`.
+- `investigation_reports`: one per completed run (`run_number` unique per investigation), `content` JSON (findings + citation chains), `provider`, `model`, `execution_id`.
+- `graph_changes`: `investigation_id`, `change_type` ∈ {entity_created, entity_updated, entity_merged, relationship_created, relationship_reinforced, claim_added, contradiction_linked, hypothesis_added}, `target_key`, `details`.
 
 ### simulation_scenarios
 `workspace_id`, `investigation_id`, `baseline_scenario_id → simulation_scenarios`, `name`, `description`, `status`, `parameters`/`assumptions`/`results` JSONB, `is_illustrative` (default **true** — real engine output must set false explicitly).
@@ -86,9 +101,10 @@ See concepts above. `generated_by_execution_id → agent_executions` ties AI hyp
 
 Defined in `backend/app/graph/model.py`.
 
-- Labels: `Entity`, `Claim`, `Source`, `Document`, `Hypothesis`.
-- Relationship types: `INFLUENCES`, `CORRELATES_WITH`, `PART_OF`, `SUPPORTS`, `CONTRADICTS`, `MENTIONED_IN`, `DERIVED_FROM`, `HYPOTHESIZED`.
+- Labels: `Entity`, `Claim`, `Source`, `Document`, `Hypothesis`, `Investigation`.
+- Entity predicates: `INFLUENCES`, `CAUSES`, `CORRELATES_WITH`, `PART_OF`, `ASSOCIATED_WITH`, `PRECEDES`, `LOCATED_IN`, `MEASURES`.
+- Provenance edges: `ABOUT`, `EVIDENCED_BY`, `FROM_SOURCE`, `CONTRADICTS`, `SUPPORTED_BY`, `OPPOSED_BY`, `FOUND`, `PROPOSED` (legacy `SUPPORTS`, `MENTIONED_IN`, `DERIVED_FROM`, `HYPOTHESIZED` kept).
 - Required properties on every node/relationship: `key`, `workspace_id`; relationships also carry `status` and `evidence_ids`.
 - `GraphRepository.ensure_schema()` applies uniqueness constraints on `(workspace_id, key)` per label and indexes per label and relationship type (verified against Neo4j 5.26). Key format and mapping: [NEO4J.md](NEO4J.md#identifier-mapping).
 
-**Decisions.** Postgres keeps provenance because it needs relational integrity, transactions with the rest of the application data, and auditing. Neo4j keeps topology because multi-hop traversal and path queries are its strength. Writes in Phase 2 will go Postgres-first (registry + evidence) then Neo4j (idempotent `MERGE` on `key`), with a reconciliation job comparing the two by `graph_key`.
+**Decisions.** Postgres keeps provenance because it needs relational integrity, transactions with the rest of the application data, and auditing. Neo4j keeps topology because multi-hop traversal and path queries are its strength. Writes go PostgreSQL-first (registry + evidence), then Neo4j in one transaction (idempotent `MERGE` on `key`). `GET /workspaces/{id}/graph/consistency` compares the two by key.

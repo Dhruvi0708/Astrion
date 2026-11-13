@@ -25,9 +25,10 @@ frontend/src
 │   ├── auth/                store, RequireAuth, Login/Register pages
 │   ├── landing/             LandingPage, hero (R3F scene + SVG fallback), sections
 │   ├── universe/            GraphCanvas engine, layout, inspector, legend, explorer page
-│   ├── overview/ investigation/ agents/ discovery/ simulation/ sources/ settings/ workspaces/
+│   ├── workbench/           Investigations list/create/compare, investigation workbench, activity timeline, findings/report, graph/ (GraphExplorer, KnowledgeGraph3D, layout3d)
+│   ├── overview/ investigation/ (sample room) agents/ discovery/ simulation/ sources/ settings/ workspaces/
 ├── lib/
-│   ├── api/                 client.ts (typed fetch + ApiError), types.ts, hooks.ts (TanStack Query)
+│   ├── api/                 client.ts (typed fetch + ApiError), types.ts + intelligence-types.ts, hooks.ts (TanStack Query, live polling)
 │   ├── hooks.ts             useInView, useReducedMotionPreference, useMediaQuery
 │   └── cn.ts, format.ts, webgl.ts
 ├── stores/ui.ts             Zustand: UI state (ephemeral) + preferences (persisted)
@@ -41,8 +42,10 @@ frontend/src
 | `/` | Landing (public) |
 | `/login?next=&reason=expired\|offline`, `/register` | Sign-in screens (public) |
 | `/app` → `/app/overview` | Overview |
-| `/app/universe?node=<id>` | Universe Explorer (deep-linkable selection) |
-| `/app/investigations?i=<id>` | Investigation Room |
+| `/app/universe` · `?view=sample&node=<id>` | Universe Explorer: your workspace graph (3D), or the sample universe |
+| `/app/investigations` | Investigations: history, create, compare |
+| `/app/investigations/:id` | Investigation workbench (activity, claims, hypotheses & conflicts, knowledge graph, report) |
+| `/app/investigations/sample?i=<id>` | Phase 1 sample Investigation Room |
 | `/app/intelligence` | Intelligence Network |
 | `/app/discovery?d=<id>` | Discovery Laboratory |
 | `/app/simulation` | Simulation Laboratory |
@@ -79,6 +82,13 @@ Everything under `/app` is wrapped in `RequireAuth`: while the session is being 
 - `GraphCanvas.tsx` renders with Canvas 2D: camera in refs, redraw on demand via `requestAnimationFrame`, continuous loop only while animating a camera transition or showing selected-edge signal pulses, and paused off-screen.
 - Interaction: drag pan, wheel/pinch zoom around cursor, hit-tested selection, hover, keyboard controls; imperative handle (`zoomIn`, `zoomOut`, `fit`, `focusNode`, `focusCluster`).
 - `wheelZoom="modifier"` on the landing preview so page scrolling is never hijacked.
+
+## Investigation workbench (`features/workbench`)
+
+- **Live state is polled, never simulated.** `useInvestigation` refetches every 1.5 s only while the server reports `queued`/`running`/`cancelling`. Sub-resources (executions, claims, …) refresh with it and once more when the run finishes. Every badge, stage dot and timeline row renders a field the API returned.
+- **Activity timeline:** one row per `agent_executions` row (retries shown as attempts), with hand-offs between roles, summary, error, provider/model/tokens/estimated cost, and expandable input, output and validation notes.
+- **Fixture honesty:** `ProviderNotice` shows a "Fixture provider — not AI" banner whenever the provider is `fixture`, and an explicit "No AI provider configured" notice when none is.
+- **3D knowledge graph:** `KnowledgeGraph3D` (React Three Fiber, lazy chunk) renders the API's graph. Entities sit on the front plane, sized by mentions and coloured by type; with the claims layer on, claims sit on a plane behind the entity they describe, so depth shows provenance. Selecting a node dims unrelated nodes and opens an inspector with claims, quotes, document and source. "Highlight in graph" on a hypothesis emphasises its claims and their entities. Without WebGL, a list is shown instead. `layout3d.ts` is a seeded d3-force layout (deterministic and unit-tested).
 
 ## Conventions
 
