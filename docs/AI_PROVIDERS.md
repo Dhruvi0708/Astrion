@@ -2,6 +2,8 @@
 
 Investigation agents call Claude through `app/intelligence/llm.py` (`ClaudeStructuredLLM`). Every call is a structured-output request validated against the agent's contract. Provider, served model, request id, tokens and estimated cost are recorded per execution. See [INTELLIGENCE_ENGINE.md](INTELLIGENCE_ENGINE.md).
 
+Phase 3 adds two agent roles that call the model: **planner** (re-plans between research iterations, only when there is a real choice) and **challenger** (debate). The hypothesis author's defense is a separate call under the hypothesis role. Every call counts against the run budget (`ASTRION_RUN_MAX_LLM_CALLS`, `_TOKENS`, `_COST_USD`).
+
 ## Providers for investigations
 
 | `ASTRION_LLM_PROVIDER` | Behaviour |

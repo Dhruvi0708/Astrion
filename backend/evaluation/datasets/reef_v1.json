@@ -1,0 +1,96 @@
+{
+  "name": "reef_v1",
+  "version": 1,
+  "description": "Coral reef monitoring: an updated figure (2019 vs 2023), a conflict about different periods, two sources sharing an author, an independent outlet restating a finding, and a follow-up question that needs passages the first question did not.",
+  "padding": "Field teams logged water clarity, transect coverage and equipment calibration notes for every dive. Logistics, permits and boat schedules are documented in the appendix and are not discussed further here. ",
+  "padding_repeats": 12,
+  "sources": [
+    {
+      "title": "Northern Reef Monitoring 2019",
+      "source_type": "report",
+      "authors": ["A. Rivera"],
+      "uri": "https://reefwatch.example.org/2019",
+      "published_on": "2019-12-01",
+      "documents": [
+        {
+          "title": "survey-2019.txt",
+          "paragraphs": [
+            "Reef Survey 2019. Ocean warming increases coral bleaching across the northern reef. Bleaching affected 30 percent of surveyed sites in 2019.",
+            "Herbivorous fish populations remained stable across the northern reef in 2019, with parrotfish grazing algae on damaged sections.",
+            "Nutrient runoff correlates with algae growth on damaged reef sections near river mouths during the wet season of 2019."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Northern Reef Monitoring 2023",
+      "source_type": "report",
+      "authors": ["A. Rivera"],
+      "uri": "https://reefwatch.example.org/2023",
+      "published_on": "2023-12-01",
+      "documents": [
+        {
+          "title": "survey-2023.txt",
+          "paragraphs": [
+            "Reef Survey 2023. Ocean warming increases coral bleaching across the northern reef. Bleaching affected 61 percent of surveyed sites in 2023.",
+            "Marine heatwaves cause coral bleaching when temperatures stay above the seasonal maximum for several weeks in 2023.",
+            "Coral recovery depends on herbivorous fish populations that graze algae after bleaching events, according to the 2023 teams."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Independent Reef Review",
+      "source_type": "paper",
+      "authors": ["K. Osei"],
+      "uri": "https://journal.example.net/review",
+      "published_on": "2021-06-01",
+      "documents": [
+        {
+          "title": "review-2021.txt",
+          "paragraphs": [
+            "Independent Reef Review 2021. Ocean warming does not increase coral bleaching at the southern sites, where cooler upwelling persisted from 2018 to 2020.",
+            "Fishing pressure reduces herbivorous fish populations near the harbour, which slows coral recovery after bleaching."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Coastal News",
+      "source_type": "article",
+      "authors": ["M. Chen"],
+      "uri": "https://news.example.com/reef",
+      "published_on": "2024-01-15",
+      "documents": [
+        {
+          "title": "news-2024.txt",
+          "paragraphs": ["Coastal News 2024. Ocean warming increases coral bleaching across the northern reef, scientists told reporters in 2024."]
+        }
+      ]
+    }
+  ],
+  "investigations": [
+    { "title": "Warming and bleaching", "question": "Does ocean warming increase coral bleaching on the reef?" },
+    { "title": "Fish and recovery", "question": "How do herbivorous fish populations affect coral recovery after bleaching?" }
+  ],
+  "gold": {
+    "facts": [
+      { "id": "F1", "text": "Ocean warming increases coral bleaching across the northern reef." },
+      { "id": "F2", "text": "Bleaching affected 30 percent of surveyed sites in 2019." },
+      { "id": "F3", "text": "Bleaching affected 61 percent of surveyed sites in 2023." },
+      { "id": "F4", "text": "Marine heatwaves cause coral bleaching when temperatures stay above the seasonal maximum for several weeks in 2023." },
+      { "id": "F5", "text": "Ocean warming does not increase coral bleaching at the southern sites, where cooler upwelling persisted from 2018 to 2020." },
+      { "id": "F6", "text": "Coral recovery depends on herbivorous fish populations that graze algae after bleaching events, according to the 2023 teams." },
+      { "id": "F7", "text": "Fishing pressure reduces herbivorous fish populations near the harbour, which slows coral recovery after bleaching." }
+    ],
+    "entities": [
+      { "name": "coral bleaching", "aliases": ["bleaching", "coral bleaching"] },
+      { "name": "herbivorous fish", "aliases": ["herbivorous fish", "fish", "parrotfish"] }
+    ],
+    "contradictions": [
+      { "a": "30 percent", "b": "61 percent", "resolution": "temporal" },
+      { "a": "does not increase coral bleaching", "b": "increases coral bleaching across the northern reef", "resolution": null }
+    ],
+    "superseded": [{ "old": "30 percent", "new": "61 percent" }]
+  }
+}

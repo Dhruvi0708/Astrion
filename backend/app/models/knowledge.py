@@ -40,6 +40,11 @@ class Claim(UUIDPrimaryKey, Timestamps, Base):
     temporal_scope: Mapped[str | None] = mapped_column(String(120))
     normalized_statement: Mapped[str | None] = mapped_column(String(600), index=True)
     graph_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Phase 3 temporal intelligence: the years a claim speaks about, parsed from its text/scope,
+    # and the newer claim that supersedes it (same subject and statement, newer figures or dates).
+    valid_from_year: Mapped[int | None] = mapped_column(Integer)
+    valid_to_year: Mapped[int | None] = mapped_column(Integer)
+    superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("claims.id", ondelete="SET NULL"))
 
 
 class Evidence(UUIDPrimaryKey, Timestamps, Base):
@@ -124,6 +129,9 @@ class InvestigationClaim(Base):
 
     investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), primary_key=True)
     claim_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claims.id", ondelete="CASCADE"), primary_key=True, index=True)
+    # Phase 3: which sub-questions the claim answered for this investigation, and the research iteration that found it.
+    sub_question_ids: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    iteration: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
 def investigation_claim_ids(investigation_id: uuid.UUID):  # noqa: ANN201

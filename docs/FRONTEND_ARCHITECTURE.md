@@ -90,6 +90,17 @@ Everything under `/app` is wrapped in `RequireAuth`: while the session is being 
 - **Fixture honesty:** `ProviderNotice` shows a "Fixture provider — not AI" banner whenever the provider is `fixture`, and an explicit "No AI provider configured" notice when none is.
 - **3D knowledge graph:** `KnowledgeGraph3D` (React Three Fiber, lazy chunk) renders the API's graph. Entities sit on the front plane, sized by mentions and coloured by type; with the claims layer on, claims sit on a plane behind the entity they describe, so depth shows provenance. Selecting a node dims unrelated nodes and opens an inspector with claims, quotes, document and source. "Highlight in graph" on a hypothesis emphasises its claims and their entities. Without WebGL, a list is shown instead. `layout3d.ts` is a seeded d3-force layout (deterministic and unit-tested).
 
+## Phase 3 views
+
+- **Workbench tabs:**
+  - *Planning & next steps*: budget bars, each assessment's coverage and scored candidates (the planner's choice marked), the stop reason, and ranked recommendations with factor bars.
+  - *Sources*: assessments, with an explicit note that they describe sources, not claims.
+- **Hypothesis cards:** reasoning type, consensus, "revises earlier", falsification conditions, assumptions, the reasoning-guard note and the debate thread. Rebuttals without evidence are flagged as not counting.
+- **Other cards:** contradictions show their resolution; claims show their period and an "outdated" badge.
+- **Graph inspector:** an entity timeline.
+- **Discovery Laboratory:** opens on real workspace insights (`features/discovery/WorkspaceInsights.tsx`), with the sample lab behind a toggle (`?view=sample`).
+- **Investigations comparison:** shows the evolution diff for each consecutive pair.
+
 ## Conventions
 
 - Feature folders own their components; shared primitives live in `components/ui`.

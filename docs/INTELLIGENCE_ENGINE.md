@@ -76,6 +76,148 @@ PostgreSQL is the system of record and Neo4j is a projection rebuilt from it by 
 - **Neo4j shape:** `(:Investigation)-[:FOUND]->(:Claim)-[:ABOUT]->(:Entity)`, `(:Claim)-[:EVIDENCED_BY {quote}]->(:Document)-[:FROM_SOURCE]->(:Source)`, `(:Entity)-[:CAUSES|INFLUENCES|…]->(:Entity)`, `(:Investigation)-[:PROPOSED]->(:Hypothesis)-[:SUPPORTED_BY|OPPOSED_BY]->(:Claim)`, `(:Claim)-[:CONTRADICTS]->(:Claim)`. Every node carries `workspace_id`, and every query filters on it.
 - **Consistency:** `GET /workspaces/{id}/graph/consistency` compares the PostgreSQL registry with Neo4j (missing and orphaned keys).
 
+## Phase 3 — autonomous intelligence
+
+Phase 3 extends the same pipeline; nothing from Phase 2 was replaced. The new behaviour lives in `adaptive.py` (mixed into the orchestrator), `memory.py`, `active_learning.py`, `temporal.py`, `source_intel.py`, `insights.py` and `retrieval.py`.
+
+```
+ingest ─► memory ─► orchestrator ─► research ─► knowledge ─► graph_sync ─► assess ─┬─(choice)─► planner ─► research … (bounded loop)
+                                                                                   └─(stop)───► temporal ─► sources ─► hypothesis ∥ contradiction
+   ─► debate: challenge ─► defense ─► verification (+ consensus) ─► synthesis ─► graph_sync:final ─► next_steps
+```
+
+### Adaptive planning and budgets
+
+- **Initial evidence.** If the documents in scope fit `ASTRION_RESEARCH_INITIAL_CHARS`, everything is read (Phase 2 behaviour). Otherwise the passages most relevant to the question and sub-questions are read first, ranked by BM25.
+- **Assessment after each iteration** (system step `assess:N`). It computes coverage per sub-question from the sub-questions each claim answered, and scores candidate actions over unread passages:
+  - research an under-covered sub-question
+  - seek evidence that resolves an open contradiction from memory
+  - establish how two co-mentioned entities relate
+- **Stopping rules, in code.** Exploration stops when:
+  - every sub-question has at least `ASTRION_MIN_CLAIMS_PER_SUBQUESTION` claims and the best candidate scores below 0.35
+  - nothing unread is relevant
+  - the iteration limit is reached
+  - the budget would not leave room for the mandatory steps
+- **Planner agent** (`planner:N`). It is called only when there is a real choice. It sees coverage, the scored candidates with explanations, recent claims and budget use. It may choose up to 3 listed actions, add up to 2 sub-questions, or declare sufficiency; it cannot invent actions. The plan revisions are stored in `investigation_runs.plan_history`.
+- **Budgets** (`ASTRION_RUN_MAX_LLM_CALLS`, `_TOKENS`, `_COST_USD`, `ASTRION_MAX_ITERATIONS`) are checked before every model call and every retry. Optional work (more exploration, the debate) is skipped while there is still headroom for the mandatory steps. A mandatory step that would exceed the budget fails the run with "Run budget exhausted" (resumable after raising the limit). Usage, the stop reason and the iterations are recorded per run in `investigation_runs`.
+
+### Persistent memory
+
+`memory` (system step) recalls workspace knowledge relevant to the question, using BM25 with at least two shared terms:
+- prior claims (marked when superseded)
+- known entities
+- open (not refuted) hypotheses from other investigations
+- unresolved genuine contradictions involving the recalled claims
+- the outcomes of earlier investigations that touched them
+
+Where the recall goes:
+- The Orchestrator sees it as `prior_knowledge`.
+- Recalled claims join the claim index (flagged `from_memory`), so new reasoning builds on them.
+- Prior hypotheses are offered to the Hypothesis agent (`PH#`). Re-evaluating one sets `revises_hypothesis_id` instead of creating an unrelated duplicate.
+
+Memory never crosses workspaces.
+
+### Agent collaboration: debate and consensus
+
+Each of these agents has a distinct responsibility and contract:
+
+| Agent | Role in the debate |
+|---|---|
+| Hypothesis (author) | Proposes hypotheses with `reasoning_type`, assumptions and `falsification_conditions`. |
+| **Challenger** (`challenger`) | Independently attacks up to `ASTRION_MAX_DEBATED_HYPOTHESES` hypotheses, the most uncertain first: alternative explanations, confounders, insufficient or inferred-only evidence, temporal mismatch, scope, counter-evidence (which must cite claims), and an overstated reasoning type. |
+| Hypothesis (defense, `debate:defense`) | Answers each objection: rebut (with cited claims), concede, or revise (new statement and an honest reasoning type). |
+| Verification | Independent adjudicator. Sees the full transcript and is told to weigh only evidence-cited arguments. |
+
+**Consensus** is computed in code from the verdict and the debate:
+
+| Consensus | When |
+|---|---|
+| `rejected` | Verdict is unsupported or contradicted. |
+| `agreed` | Supported or partially supported, and every objection was answered *with evidence*. |
+| `contested` | At least one objection stands. |
+| `insufficient` | Insufficient evidence and no objection stands. |
+| `unchallenged` | The hypothesis was not debated. |
+
+A rebuttal that cites no claim never counts as an answer. Every turn is stored in `agent_messages` (challenge, rebuttal, concession, revision, verdict) with the claims it cites.
+
+### Hypothesis reasoning
+
+Every hypothesis stores:
+- statement, rationale, and supporting and opposing evidence
+- confidence method (`astrion-evidence-v2`)
+- verification status and consensus
+- unresolved assumptions and falsification conditions
+- reasoning type: **causation** (cited claims assert a causal mechanism), **correlation** (things co-occur), **inference** (reasoning beyond the claims) or **speculation** (no direct support)
+
+A code guard enforces the label:
+- "causation" without a cited claim linked to a `CAUSES` or `INFLUENCES` relationship is downgraded to correlation.
+- Causation or correlation resting only on inferred claims becomes inference.
+- A hypothesis without support is speculation.
+
+The downgrade is recorded (`debate.reasoning_check`).
+
+Confidence v2 changes two things:
+- Diversity counts *independent source groups* (sources sharing a web host, an author or identical content count once).
+- Superseded supporting claims weigh half.
+
+### Temporal intelligence
+
+Step `temporal`:
+- Parses the years a claim speaks about (ranges, "since", "until", single years) into `valid_from_year` / `valid_to_year`.
+- Detects outdated claims: same subject, same statement apart from figures, different figures, different years (stated, or the source's publication year). The older claim is marked `superseded_by_id`, and the update is written to the change log.
+- Years are never treated as changed figures: an outlet restating a finding "in 2024" corroborates it rather than updating it.
+
+Conflicts between claims about non-overlapping periods are resolved as *temporal* ("both can hold at their own time"); conflicts the verifier finds unsupported are resolved by *verification*. `GET …/graph/entities/{id}/timeline` shows an entity's claims in time order, with supersessions.
+
+### Source intelligence
+
+Step `sources` writes one `source_assessments` row per source used:
+
+| Score | Basis |
+|---|---|
+| Relevance | Share of the investigation's claims. |
+| Credibility | A *prior by source type*, labelled as such: paper 0.8, dataset 0.75, report 0.7, article 0.55, document 0.5, web/other 0.4. |
+| Recency | Linear decay over 10 years from publication; unknown dates stay unknown. |
+| Independence | 1 / size of the source's origin group. |
+| Corroboration | Share of its claims also stated by an independent group. |
+
+These scores describe sources and **never** enter claim or hypothesis confidence. Only claim-level corroboration, meaning how many independent groups state a claim, is shown to the agents.
+
+### Active learning
+
+Candidates and recommendations share one documented scoring method (`astrion-active-v1`):
+
+```
+score = 0.30·uncertainty + 0.25·relevance + 0.25·information_gain + 0.10·weak_evidence + 0.10·contradiction
+```
+
+Each factor is in [0, 1], and the explanation names the factors at or above 0.4. After a run, `next_steps` stores up to 15 ranked recommendations:
+- find evidence for under-covered sub-questions
+- corroborate single-source claims the report relies on
+- refresh outdated claims
+- resolve open conflicts
+- test contested or mid-confidence hypotheses through their falsification conditions
+- establish missing relationships
+
+### Cross-investigation intelligence
+
+`GET /workspaces/{id}/insights` returns the following for one workspace, all deterministic and computed from stored records:
+- entities several investigations reached
+- relationships corroborated by claims from several investigations
+- **unnoticed connections**: entities first found by different investigations, linked through a shared entity but never directly
+- recurring (type —predicate→ type) patterns
+- how hypotheses evolved (revisions and restatements, with confidence and status changes)
+- knowledge gaps: single-claim entities, weakly supported relationships, open hypotheses, unresolved contradictions, unanswered sub-questions
+
+Connections that touch the current investigation are also given to the Hypothesis agent as `cross_links`. Comparison (`…/investigations/compare`) adds an `evolution` diff for consecutive investigations: shared and new entities, new relationships, changed hypotheses, resolved contradictions, new conflicts and change-log totals.
+
+### Reliability
+
+- Every new step is a recorded, resumable execution; resume reuses succeeded steps, including planner decisions and assessments.
+- Retries are bounded, and each retry is re-checked against the budget.
+- Ordering is deterministic: claims sort by statement on timestamp ties, and investigations by run start. The same inputs therefore give the same agent inputs, which makes evaluations reproducible.
+- `investigation_runs` keeps model, token and cost provenance per run.
+
 ## Configuration
 
 | Variable | Default | Meaning |
@@ -90,10 +232,20 @@ PostgreSQL is the system of record and Neo4j is a projection rebuilt from it by 
 | `ASTRION_RESEARCH_CHARS_PER_CALL` | 24000 | Passage text per Research call. |
 | `ASTRION_MAX_CLAIMS_FOR_REASONING` | 80 | Claims shown to reasoning agents. |
 | `ASTRION_MAX_CONCURRENT_INVESTIGATIONS` | 2 | Runs executing at once per API process. |
+| `ASTRION_MAX_ITERATIONS` | 3 | Research iterations per run (including the first). |
+| `ASTRION_RESEARCH_INITIAL_CHARS` | 120000 | Text read in the first iteration before targeting begins. |
+| `ASTRION_RESEARCH_ITERATION_CHARS` | 24000 | Passage text per chosen action in later iterations. |
+| `ASTRION_MIN_CLAIMS_PER_SUBQUESTION` | 2 | Coverage needed before a sub-question counts as answered. |
+| `ASTRION_RUN_MAX_LLM_CALLS` | 40 | Hard limit on model calls per run (retries included). |
+| `ASTRION_RUN_MAX_TOKENS` | 2000000 | Hard limit on tokens per run. |
+| `ASTRION_RUN_MAX_COST_USD` | 20 | Hard limit on estimated cost per run. |
+| `ASTRION_MAX_DEBATED_HYPOTHESES` | 3 | Hypotheses debated per run (0 disables the debate). |
+| `ASTRION_MEMORY_CLAIMS` | 20 | Prior claims recalled per investigation. |
 
 Costs shown are **estimates** from a static per-model price table (`PRICING_PER_MTOK`). Unknown models show no cost rather than a guess.
 
 ## What is and isn't verified
 
 - Verified by tests: orchestration order, parallelism, retries, timeouts, failure, resume, cancel, recovery, persistence, dedup, provenance, authorization, Neo4j sync against a real Neo4j 5.26, and the Claude request shape (with a fake SDK client).
+- Phase 3, verified with the deterministic fixture provider (a mocked LLM), on real PostgreSQL and Neo4j: adaptive iterations and planner choices, budget stops and budget failure followed by resume, memory recall and hypothesis revision, debate records and consensus rules, the reasoning-type guard, temporal supersession and resolution, source independence, recommendations, cross-investigation insights, comparison and workspace isolation. Benchmarks: [EVALUATION.md](EVALUATION.md).
 - **Not verified:** real Claude output quality and the live API request. No `ANTHROPIC_API_KEY` was available while building this phase. Before trusting results, set the key, run `python -m app.ai.check`, and run one investigation on known documents.

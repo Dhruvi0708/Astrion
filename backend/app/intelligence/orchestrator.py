@@ -2,9 +2,12 @@
 
 Pipeline (one run):
 
-    ingest ─► orchestrator ─► research[doc/part] ×N (parallel) ─► knowledge ─► graph_sync:knowledge
-                                                                   └─► hypothesis ∥ contradiction (parallel)
-                                                                        └─► verification ─► synthesis ─► graph_sync:final
+    ingest ─► memory ─► orchestrator ─► research ×N ─► knowledge ─► graph_sync ─► assess ─┬─► planner ─► research … (loop, bounded)
+                                                                                          └─► temporal ─► sources ─► hypothesis ∥ contradiction
+        ─► debate (challenge ─► defense) ─► verification (+ consensus) ─► synthesis ─► graph_sync:final ─► next_steps
+
+Phase 3 behaviour (memory, adaptive exploration, budgets, debate, temporal and source intelligence)
+lives in `adaptive.AdaptiveMixin`.
 
 Guarantees
 * Every step is an ``agent_executions`` row with a stable ``step_key`` (``r<run>:<name>``); each retry
@@ -26,21 +29,22 @@ import uuid
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.ai.llm import ProviderError
 from app.core.config import Settings
 from app.intelligence import contracts as c
+from app.intelligence.adaptive import AdaptiveMixin
 from app.intelligence.agents import AGENTS, AgentRun
 from app.intelligence.confidence import ClaimWeight, hypothesis_confidence
 from app.intelligence.knowledge_store import KnowledgeStore, ResearchBatch, sync_investigation_graph
 from app.intelligence.llm import StructuredLLM
+from app.intelligence.memory import MemoryBrief
+from app.intelligence.steps import BudgetExhausted, Cancelled, ClaimIndex, StepFailed, StepOutcome, StepSpec  # noqa: F401 (re-exported)
 from app.intelligence.text import ExtractionError, chunk, extract_segments
 from app.models import (
     AgentExecution,
@@ -85,47 +89,7 @@ VERDICT_TO_STATUS = {
 }
 
 
-class Cancelled(Exception):
-    pass
-
-
-class StepFailed(Exception):
-    def __init__(self, step_key: str, message: str) -> None:
-        super().__init__(f"{step_key}: {message}")
-        self.step_key = step_key
-
-
-@dataclass
-class StepSpec:
-    name: str
-    role: AgentRole
-    call: Callable[[], AgentRun]
-    input: dict
-    output_type: type[BaseModel]
-    depends_on: list[str] = field(default_factory=list)
-    summarize: Callable[[BaseModel], str] = lambda o: ""
-
-
-@dataclass
-class StepOutcome:
-    output: BaseModel
-    execution_id: uuid.UUID
-    reused: bool
-
-
-@dataclass
-class ClaimIndex:
-    """Short refs (C1…) shown to agents, mapped to claims."""
-
-    by_ref: dict[str, Claim] = field(default_factory=dict)
-    views: list[c.ClaimView] = field(default_factory=list)
-    source_of: dict[str, uuid.UUID] = field(default_factory=dict)
-
-    def ref_of(self, claim_id: uuid.UUID) -> str | None:
-        return next((r for r, cl in self.by_ref.items() if cl.id == claim_id), None)
-
-
-class Orchestrator:
+class Orchestrator(AdaptiveMixin):
     def __init__(
         self,
         session_factory: sessionmaker[Session],
@@ -155,6 +119,7 @@ class Orchestrator:
             inv.error = None
             inv.llm_provider, inv.llm_model = self.llm.provider, self.llm.model
             db.commit()
+            self._run_row(db, inv)
             try:
                 self._pipeline(db, inv)
             except Cancelled:
@@ -174,24 +139,41 @@ class Orchestrator:
             inv.finished_at = datetime.now(UTC)
             inv.cancel_requested = False
             db.commit()
+            self._close_run(db, inv)
             logger.info("investigation finished", extra={"investigation_id": str(inv.id), "status": inv.status.value})
             return inv.status
         finally:
             db.close()
 
+    def _close_run(self, db: Session, inv: Investigation) -> None:
+        try:
+            run = self._run_row(db, inv)
+            run.status = inv.status.value
+            run.usage = self._usage(db, inv)
+            run.finished_at = datetime.now(UTC)
+            if inv.status != InvestigationStatus.completed and not run.stop_reason:
+                run.stop_reason = inv.error or inv.status.value
+            db.commit()
+        except Exception:  # bookkeeping must never mask the run's real outcome
+            db.rollback()
+            logger.exception("could not close run record", extra={"investigation_id": str(inv.id)})
+
     # ================================================================== pipeline
 
     def _pipeline(self, db: Session, inv: Investigation) -> None:
         documents = self._ingest(db, inv)
-        plan = self._orchestrator_step(db, inv, documents)
-        batches = self._research_steps(db, inv, plan, documents)
-        self._knowledge_step(db, inv, batches)
-        self._graph_sync(db, inv, "graph_sync:knowledge", depends_on=["knowledge"])
-        claims = self._claim_index(db, inv)
-        hyp_ids, con_ids = self._reasoning_steps(db, inv, plan, claims)
-        self._verification_step(db, inv, claims, hyp_ids, con_ids)
-        self._synthesis_step(db, inv, plan, claims, documents)
+        memory = self._memory_step(db, inv)
+        plan = self._orchestrator_step(db, inv, documents, memory)
+        plan = self._explore(db, inv, plan, documents, memory)
+        self._temporal_step(db, inv, memory)
+        source_notes = self._sources_step(db, inv)
+        claims = self._claim_index(db, inv, memory)
+        hyp_ids, con_ids = self._reasoning_steps(db, inv, plan, claims, memory)
+        transcripts = self._debate_step(db, inv, claims, hyp_ids)
+        self._verification_step(db, inv, claims, hyp_ids, con_ids, transcripts)
+        self._synthesis_step(db, inv, plan, claims, documents, source_notes)
         self._graph_sync(db, inv, "graph_sync:final", depends_on=["synthesis"])
+        self._next_steps_step(db, inv)
 
     # ------------------------------------------------------------------ execution bookkeeping
 
@@ -307,6 +289,7 @@ class Orchestrator:
         if not todo:
             return results
         self._check_cancel(db, inv)
+        self._guard_budget(db, inv, len(todo))
 
         attempts: dict[str, int] = {}
         pool = ThreadPoolExecutor(max_workers=min(self.settings.agent_max_parallel, len(todo)), thread_name_prefix="astrion-agent")
@@ -341,6 +324,11 @@ class Orchestrator:
                         if exc.retryable and attempts[name] < self.settings.agent_max_attempts and failure is None:
                             self.sleep(self.settings.agent_retry_backoff_seconds * (2 ** (attempts[name] - 1)))
                             self._check_cancel(db, inv)
+                            try:
+                                self._guard_budget(db, inv, 1)
+                            except BudgetExhausted as budget:
+                                failure = budget
+                                continue
                             submit(spec)
                         else:
                             failure = failure or StepFailed(row.step_key, detail)
@@ -440,8 +428,8 @@ class Orchestrator:
         src = db.get(Source, doc.source_id)
         return f"{doc.title} — {src.title if src else 'unknown source'}"
 
-    def _orchestrator_step(self, db: Session, inv: Investigation, docs: list[Document]) -> c.OrchestratorOutput:
-        payload = c.OrchestratorInput(question=inv.question, documents=[self._doc_label(db, d) for d in docs])
+    def _orchestrator_step(self, db: Session, inv: Investigation, docs: list[Document], memory: MemoryBrief | None = None) -> c.OrchestratorOutput:
+        payload = c.OrchestratorInput(question=inv.question, documents=[self._doc_label(db, d) for d in docs], prior_knowledge=memory.lines if memory else [])
         agent = AGENTS[AgentRole.orchestrator]
         out = self._run_steps(
             db,
@@ -453,20 +441,24 @@ class Orchestrator:
                     lambda: agent.run(payload, self.llm),
                     payload.model_dump(),
                     c.OrchestratorOutput,
-                    ["ingest"],
+                    ["memory"],
                     lambda o: f"{len(o.sub_questions)} sub-questions defined.",
                 )
             ],
         )["orchestrator"]
         plan: c.OrchestratorOutput = out.output  # type: ignore[assignment]
+        if out.reused and inv.plan and len(inv.plan.get("sub_questions", [])) > len(plan.sub_questions):
+            return c.OrchestratorOutput.model_validate(inv.plan)
         inv.plan = plan.model_dump()
         db.commit()
         return plan
 
     # ------------------------------------------------------------------ 3. research (parallel)
 
-    def _research_parts(self, db: Session, doc: Document) -> list[list[DocumentChunk]]:
+    def _research_parts(self, db: Session, doc: Document, only: set | None = None) -> list[list[DocumentChunk]]:
         chunks = list(db.scalars(select(DocumentChunk).where(DocumentChunk.document_id == doc.id).order_by(DocumentChunk.chunk_index)))
+        if only is not None:
+            chunks = [ch for ch in chunks if ch.id in only]
         parts, current, size = [], [], 0
         for ch in chunks:
             if current and size + len(ch.text) > self.settings.research_chars_per_call:
@@ -478,12 +470,23 @@ class Orchestrator:
             parts.append(current)
         return parts
 
-    def _research_steps(self, db: Session, inv: Investigation, plan: c.OrchestratorOutput, docs: list[Document]) -> list[ResearchBatch]:
+    def _research_steps(
+        self,
+        db: Session,
+        inv: Investigation,
+        plan: c.OrchestratorOutput,
+        docs: list[Document],
+        chunks: list[DocumentChunk] | None = None,
+        iteration: int = 1,
+        depends: str = "orchestrator",
+    ) -> list[ResearchBatch]:
         agent = AGENTS[AgentRole.research]
         specs, contexts = [], {}
+        only = {ch.id for ch in chunks} if chunks is not None else None
+        prefix = "research" if iteration == 1 else f"research:i{iteration}"
         for doc in docs:
             source = db.get(Source, doc.source_id)
-            for i, part in enumerate(self._research_parts(db, doc), start=1):
+            for i, part in enumerate(self._research_parts(db, doc, only), start=1):
                 passages = {f"P{ch.chunk_index + 1}": ch for ch in part}
                 payload = c.ResearchInput(
                     question=inv.question,
@@ -492,21 +495,29 @@ class Orchestrator:
                     source_title=source.title if source else "unknown",
                     passages=[c.PassageView(ref=ref, text=ch.text) for ref, ch in passages.items()],
                 )
-                name = f"research:{doc.id}:{i}"
+                name = f"{prefix}:{doc.id}:{i}"
                 contexts[name] = (doc, source, passages)
                 specs.append(
                     StepSpec(
                         name,
                         AgentRole.research,
                         (lambda p=payload: agent.run(p, self.llm)),
-                        {"document_id": str(doc.id), "document": doc.title, "part": i, "passages": len(passages)},
+                        {
+                            "document_id": str(doc.id),
+                            "document": doc.title,
+                            "part": i,
+                            "passages": len(passages),
+                            "iteration": iteration,
+                            "chunk_ids": [str(ch.id) for ch in part],
+                        },
                         c.ResearchOutput,
-                        ["orchestrator"],
+                        [depends],
                         lambda o: f"{len(o.claims)} claims, {len(o.entities)} entities, {len(o.relationships)} relationships (relevance {o.relevance}).",
                     )
                 )
         if not specs:
-            self._skip(db, inv, "research", AgentRole.research, "No document in scope has readable text.", ["orchestrator"])
+            if iteration == 1:
+                self._skip(db, inv, "research", AgentRole.research, "No document in scope has readable text.", ["orchestrator"])
             return []
         outcomes = self._run_steps(db, inv, specs)
         return [
@@ -516,8 +527,10 @@ class Orchestrator:
 
     # ------------------------------------------------------------------ 4. knowledge
 
-    def _knowledge_step(self, db: Session, inv: Investigation, batches: list[ResearchBatch]) -> None:
-        if self._succeeded(db, inv, "knowledge"):
+    def _knowledge_step(self, db: Session, inv: Investigation, batches: list[ResearchBatch], iteration: int = 1) -> None:
+        name = "knowledge" if iteration == 1 else f"knowledge:i{iteration}"
+        resolve = "knowledge:resolve" if iteration == 1 else f"knowledge:resolve:i{iteration}"
+        if self._succeeded(db, inv, name):
             return
         store = KnowledgeStore(db, inv, extractor=f"{self.llm.provider}:{self.llm.model}")
         payload, pair_map = store.duplicate_questions(batches)
@@ -529,7 +542,7 @@ class Orchestrator:
                 inv,
                 [
                     StepSpec(
-                        "knowledge:resolve",
+                        resolve,
                         AgentRole.knowledge,
                         lambda: agent.run(payload, self.llm),
                         payload.model_dump(),
@@ -538,14 +551,14 @@ class Orchestrator:
                         lambda o: f"{sum(d.same_entity for d in o.decisions)} of {len(o.decisions)} candidate pairs merged.",
                     )
                 ],
-            )["knowledge:resolve"]
+            )[resolve]
             for d in out.output.decisions:  # type: ignore[attr-defined]
                 if d.same_entity and d.pair_id in pair_map:
                     new_key, existing_id = pair_map[d.pair_id]
                     merges[new_key] = existing_id
 
         def work() -> tuple[dict, str, ExecutionStatus]:
-            summary = store.apply(batches, merges)
+            summary = store.apply(batches, merges, iteration)
             data = summary.as_dict() | {"ambiguous_pairs": len(payload.pairs), "merged_by_agent": len(merges)}
             text = (
                 f"{summary.claims_created} new claims ({summary.claims_reused} already known), "
@@ -555,11 +568,13 @@ class Orchestrator:
             return data, text, ExecutionStatus.succeeded
 
         # Persisting knowledge is the deterministic half of the Knowledge Agent's responsibility.
-        done = self._succeeded(db, inv, "knowledge")
+        done = self._succeeded(db, inv, name)
         if done:
             return
         self._check_cancel(db, inv)
-        row = self._new_execution(db, inv, "knowledge", AgentRole.knowledge, {"batches": len(batches), "ambiguous_pairs": len(payload.pairs)}, ["research"])
+        row = self._new_execution(
+            db, inv, name, AgentRole.knowledge, {"batches": len(batches), "ambiguous_pairs": len(payload.pairs), "iteration": iteration}, ["research"]
+        )
         try:
             data, text, status = work()
         except Exception as exc:
@@ -591,29 +606,37 @@ class Orchestrator:
 
     # ------------------------------------------------------------------ claim index
 
-    def _claim_index(self, db: Session, inv: Investigation) -> ClaimIndex:
-        """Claims from this investigation, plus earlier workspace claims about the same entities."""
+    def _claim_index(self, db: Session, inv: Investigation, memory: MemoryBrief | None = None) -> ClaimIndex:
+        """Claims from this investigation, plus earlier workspace claims recalled from memory or about the same entities."""
+        from app.intelligence.source_intel import claim_corroboration, independence_groups
+
         found = investigation_claim_ids(inv.id)
-        own = list(db.scalars(select(Claim).where(Claim.id.in_(found)).order_by(Claim.created_at, Claim.id)))
+        own = list(db.scalars(select(Claim).where(Claim.id.in_(found)).order_by(Claim.created_at, Claim.normalized_statement, Claim.document_id)))
+        own_ids = {cl.id for cl in own}
         entity_ids = {cl.subject_entity_id for cl in own if cl.subject_entity_id}
-        prior: list[Claim] = []
+        prior: list[Claim] = [cl for cl in (db.get(Claim, x) for x in (memory.claim_ids if memory else [])) if cl is not None and cl.id not in own_ids]
         if entity_ids:
-            prior = list(
+            prior += list(
                 db.scalars(
                     select(Claim)
                     .where(Claim.workspace_id == inv.workspace_id, Claim.subject_entity_id.in_(entity_ids), Claim.id.not_in(found))
-                    .order_by(Claim.created_at.desc())
+                    .order_by(Claim.created_at.desc(), Claim.normalized_statement)
                     .limit(self.settings.max_claims_for_reasoning // 4)
                 )
             )
+        seen: set = set()
+        selected = [cl for cl in [*own, *prior] if not (cl.id in seen or seen.add(cl.id))][: self.settings.max_claims_for_reasoning]
+        groups = independence_groups(db, list(db.scalars(select(Source).where(Source.workspace_id == inv.workspace_id))))
+        corroboration = claim_corroboration(db, inv.workspace_id, selected)
         index = ClaimIndex()
-        for cl in [*own, *prior][: self.settings.max_claims_for_reasoning]:
+        for cl in selected:
             ref = f"C{len(index.by_ref) + 1}"
             doc = db.get(Document, cl.document_id)
             src = db.get(Source, doc.source_id) if doc else None
             quotes = list(db.scalars(select(Evidence.quote).where(Evidence.claim_id == cl.id).limit(3)))
             index.by_ref[ref] = cl
             index.source_of[ref] = src.id if src else doc.id
+            index.group_of[ref] = groups.get(src.id, str(src.id)) if src else str(doc.id)
             index.views.append(
                 c.ClaimView(
                     ref=ref,
@@ -623,6 +646,10 @@ class Orchestrator:
                     source=src.title if src else "?",
                     temporal_scope=cl.temporal_scope,
                     quotes=quotes,
+                    period=self._period_label(cl),
+                    superseded=cl.superseded_by_id is not None,
+                    independent_sources=corroboration.get(cl.id, 1),
+                    from_memory=cl.id not in own_ids,
                 )
             )
         return index
@@ -646,14 +673,30 @@ class Orchestrator:
             lines.append(f"{a.name} —{rel.relation_type.lower()}→ {b.name} ({', '.join(sorted(refs))})")
         return lines[:60]
 
-    def _reasoning_steps(self, db: Session, inv: Investigation, plan: c.OrchestratorOutput, claims: ClaimIndex) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
+    def _reasoning_steps(
+        self, db: Session, inv: Investigation, plan: c.OrchestratorOutput, claims: ClaimIndex, memory: MemoryBrief | None = None
+    ) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
         if not claims.views:
             for name, role in (("hypothesis", AgentRole.hypothesis), ("contradiction", AgentRole.contradiction)):
                 self._skip(db, inv, name, role, "No evidenced claims were extracted, so there is nothing to reason over.", ["knowledge"])
             return [], []
+        prior = [db.get(Hypothesis, x) for x in (memory.hypothesis_ids if memory else [])]
+        prior_refs = {f"PH{i}": h for i, h in enumerate((h for h in prior if h is not None), start=1)}
+        titles = {i.id: i.title for i in db.scalars(select(Investigation).where(Investigation.workspace_id == inv.workspace_id))}
         h_payload = c.HypothesisInput(
-            question=inv.question, sub_questions=plan.sub_questions, claims=claims.views, relationships=self._relationship_lines(db, claims)
+            question=inv.question,
+            sub_questions=plan.sub_questions,
+            claims=claims.views,
+            relationships=self._relationship_lines(db, claims),
+            prior_hypotheses=[
+                c.PriorHypothesisView(
+                    ref=r, statement=h.statement, status=h.status.value, confidence=h.confidence, investigation=titles.get(h.investigation_id, "?")
+                )
+                for r, h in prior_refs.items()
+            ],
+            cross_links=self._cross_links(db, inv, claims),
         )
+        self._prior_refs = {r: h.id for r, h in prior_refs.items()}
         x_payload = c.ContradictionInput(question=inv.question, claims=claims.views)
         ha, xa = AGENTS[AgentRole.hypothesis], AGENTS[AgentRole.contradiction]
         ref_map = {r: str(cl.id) for r, cl in claims.by_ref.items()}
@@ -680,11 +723,33 @@ class Orchestrator:
         outcomes = self._run_steps(db, inv, specs)
         hyp_ids = self._persist_hypotheses(db, inv, claims, outcomes["hypothesis"])
         con_ids = self._persist_contradictions(db, inv, claims, outcomes["contradiction"])
+        self._resolve_contradictions_temporally(db, con_ids)
         db.commit()
         return hyp_ids, con_ids
 
+    def _cross_links(self, db: Session, inv: Investigation, claims: ClaimIndex) -> list[str]:
+        from app.intelligence.insights import workspace_insights
+
+        names = {db.get(GraphEntity, cl.subject_entity_id).name for cl in claims.by_ref.values() if cl.subject_entity_id}
+        if not names:
+            return []
+        links = workspace_insights(db, inv.workspace_id)["connections"]
+        return [
+            f"{x['path']} (from: {', '.join(x['from_investigations'])}; to: {', '.join(x['to_investigations'])})"
+            for x in links
+            if x["from"] in names or x["to"] in names
+        ][:15]
+
     def _claim_weights(self, claims: ClaimIndex, refs: list[str]) -> list[ClaimWeight]:
-        return [ClaimWeight(explicit=claims.by_ref[r].kind.value == "explicit", source_id=str(claims.source_of[r])) for r in refs if r in claims.by_ref]
+        return [
+            ClaimWeight(
+                explicit=claims.by_ref[r].kind.value == "explicit",
+                source_id=claims.group_of.get(r) or str(claims.source_of[r]),
+                superseded=claims.by_ref[r].superseded_by_id is not None,
+            )
+            for r in refs
+            if r in claims.by_ref
+        ]
 
     def _persist_hypotheses(self, db: Session, inv: Investigation, claims: ClaimIndex, outcome: StepOutcome) -> list[uuid.UUID]:
         existing = list(db.scalars(select(Hypothesis.id).where(Hypothesis.generated_by_execution_id == outcome.execution_id)))
@@ -695,17 +760,25 @@ class Orchestrator:
             method = hypothesis_confidence(
                 self._claim_weights(claims, h.supporting_claim_refs), self._claim_weights(claims, h.opposing_claim_refs), None, h.plausibility
             )
+            reasoning_type, reasoning_note = self._guard_reasoning(
+                db, h.reasoning_type, [claims.by_ref[r] for r in h.supporting_claim_refs if r in claims.by_ref]
+            )
             row = Hypothesis(
                 workspace_id=inv.workspace_id,
                 investigation_id=inv.id,
                 generated_by_execution_id=outcome.execution_id,
                 statement=h.statement,
-                rationale=h.rationale + (f"\n\nAssumptions: {'; '.join(h.assumptions)}" if h.assumptions else ""),
+                rationale=h.rationale,
                 origin=HypothesisOrigin.ai_generated,
                 status=VerificationStatus.unverified,
                 confidence=method["score"],
                 confidence_method=method,
                 test_plan=h.test_plan,
+                reasoning_type=reasoning_type,
+                assumptions=list(h.assumptions),
+                falsification_conditions=list(h.falsification_conditions),
+                revises_hypothesis_id=getattr(self, "_prior_refs", {}).get(h.revisits_prior_ref) if h.revisits_prior_ref else None,
+                debate={"reasoning_check": reasoning_note, "declared_reasoning_type": h.reasoning_type} if reasoning_note else {},
             )
             db.add(row)
             db.flush()
@@ -778,7 +851,16 @@ class Orchestrator:
                 (sup if stance == "supports" else opp).append(v)
         return sup, opp
 
-    def _verification_step(self, db: Session, inv: Investigation, claims: ClaimIndex, hyp_ids: list[uuid.UUID], con_ids: list[uuid.UUID]) -> None:
+    def _verification_step(
+        self,
+        db: Session,
+        inv: Investigation,
+        claims: ClaimIndex,
+        hyp_ids: list[uuid.UUID],
+        con_ids: list[uuid.UUID],
+        transcripts: dict[uuid.UUID, list[str]] | None = None,
+    ) -> None:
+        transcripts = transcripts or {}
         if not hyp_ids and not con_ids:
             self._skip(db, inv, "verification", AgentRole.verification, "No hypotheses or contradictions to verify.", ["hypothesis", "contradiction"])
             return
@@ -787,14 +869,32 @@ class Orchestrator:
         for i, hid in enumerate(hyp_ids, start=1):
             h = db.get(Hypothesis, hid)
             sup, opp = self._hypothesis_claims(db, claims, h)
-            hyps.append(c.HypothesisForReview(ref=f"H{i}", statement=h.statement, rationale=h.rationale or "", supporting=sup, opposing=opp))
+            hyps.append(
+                c.HypothesisForReview(
+                    ref=f"H{i}",
+                    statement=h.statement,
+                    rationale=h.rationale or "",
+                    supporting=sup,
+                    opposing=opp,
+                    reasoning_type=h.reasoning_type,
+                    debate=transcripts.get(hid, []),
+                )
+            )
             targets[f"H{i}"] = ("hypothesis", hid)
         for i, xid in enumerate(con_ids, start=1):
             x = db.get(Contradiction, xid)
             va, vb = self._view(claims, x.claim_a_id), self._view(claims, x.claim_b_id)
             if va and vb:
                 cons.append(
-                    c.ContradictionForReview(ref=f"X{i}", claim_a=va, claim_b=vb, kind=x.kind.value, is_genuine=x.is_genuine, explanation=x.explanation)
+                    c.ContradictionForReview(
+                        ref=f"X{i}",
+                        claim_a=va,
+                        claim_b=vb,
+                        kind=x.kind.value,
+                        is_genuine=x.is_genuine,
+                        explanation=x.explanation,
+                        temporal_note=x.resolution if x.resolution_kind == "temporal" else None,
+                    )
                 )
                 targets[f"X{i}"] = ("contradiction", xid)
         payload = c.VerificationInput(question=inv.question, hypotheses=hyps, contradictions=cons)
@@ -809,13 +909,14 @@ class Orchestrator:
                     lambda: agent.run(payload, self.llm),
                     {"targets": {k: str(v[1]) for k, v in targets.items()}},
                     c.VerificationOutput,
-                    ["hypothesis", "contradiction"],
+                    ["debate:defense" if transcripts else "hypothesis", "contradiction"],
                     lambda o: ", ".join(f"{r.target_ref} {r.verdict}" for r in o.reviews),
                 )
             ],
         )["verification"]
         if db.scalar(select(func.count()).select_from(VerificationResult).where(VerificationResult.execution_id == outcome.execution_id)):
             return
+        verdicts: dict[uuid.UUID, str] = {}
         for r in outcome.output.reviews:  # type: ignore[attr-defined]
             kind, target_id = targets[r.target_ref]
             checked = [str(claims.by_ref[x].id) for x in r.unsupported_claim_refs if x in claims.by_ref]
@@ -833,7 +934,12 @@ class Orchestrator:
                     checked_claim_ids=checked,
                 )
             )
+            if kind == "contradiction" and r.verdict == "unsupported":
+                x = db.get(Contradiction, target_id)
+                if x.resolution_kind is None:
+                    x.resolution_kind, x.resolution = "verification", f"Verifier: the conflict is not supported by the evidence. {r.reasoning}"[:4000]
             if kind == "hypothesis":
+                verdicts[target_id] = r.verdict
                 h = db.get(Hypothesis, target_id)
                 sup, opp = self._hypothesis_claims(db, claims, h)
                 method = hypothesis_confidence(
@@ -846,10 +952,13 @@ class Orchestrator:
                 h.status = VERDICT_TO_STATUS[r.verdict]
                 h.verification_note = r.reasoning[:4000]
         db.commit()
+        self._consensus(db, inv, verdicts)
 
     # ------------------------------------------------------------------ 7. synthesis
 
-    def _synthesis_step(self, db: Session, inv: Investigation, plan: c.OrchestratorOutput, claims: ClaimIndex, docs: list[Document]) -> None:
+    def _synthesis_step(
+        self, db: Session, inv: Investigation, plan: c.OrchestratorOutput, claims: ClaimIndex, docs: list[Document], source_notes: list[str] | None = None
+    ) -> None:
         hyps = list(db.scalars(select(Hypothesis).where(Hypothesis.investigation_id == inv.id).order_by(Hypothesis.created_at)))
         cons = list(db.scalars(select(Contradiction).where(Contradiction.investigation_id == inv.id).order_by(Contradiction.created_at)))
         verdicts = {v.target_id: v for v in db.scalars(select(VerificationResult).where(VerificationResult.investigation_id == inv.id))}
@@ -865,6 +974,8 @@ class Orchestrator:
                     confidence=(h.confidence_method or {}).get("band", "low"),
                     supporting_claim_refs=[x.ref for x in sup],
                     opposing_claim_refs=[x.ref for x in opp],
+                    reasoning_type=h.reasoning_type,
+                    consensus=h.consensus,
                 )
             )
             h_map[f"H{i}"] = h
@@ -903,6 +1014,8 @@ class Orchestrator:
             contradictions=x_views,
             verification_summary=summary,
             documents_without_evidence=no_evidence,
+            source_notes=source_notes or [],
+            stop_reason=self._run_row(db, inv).stop_reason,
         )
         agent = AGENTS[AgentRole.synthesis]
         outcome = self._run_steps(

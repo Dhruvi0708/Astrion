@@ -108,6 +108,13 @@ class Hypothesis(UUIDPrimaryKey, Timestamps, Base):
     # How `confidence` was computed (inputs and formula), so it can be audited.
     confidence_method: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
     test_plan: Mapped[str | None] = mapped_column(Text)
+    # Phase 3 hypothesis reasoning
+    reasoning_type: Mapped[str | None] = mapped_column(String(16))  # correlation | causation | inference | speculation
+    assumptions: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    falsification_conditions: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    consensus: Mapped[str | None] = mapped_column(String(16))  # agreed | contested | rejected (after debate + verification)
+    debate: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    revises_hypothesis_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("hypotheses.id", ondelete="SET NULL"))
     verified_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verification_note: Mapped[str | None] = mapped_column(Text)

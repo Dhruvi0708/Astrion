@@ -92,3 +92,27 @@ def test_investigation_syncs_consistent_graph_to_neo4j(graph_app, auth_client, o
         assert bob["source"] == "neo4j" and bob["nodes"] == [] and bob["edges"] == []
     finally:
         _wipe(neo4j_client, ws)
+
+
+def test_adaptive_run_with_iterations_keeps_neo4j_consistent(graph_app, auth_client, harness, neo4j_client):
+    """Phase 3: several research iterations, each synced, plus the final sync, against a real server."""
+    from tests import phase3_data as d
+
+    harness.settings_overrides.update({"research_initial_chars": 1500, "research_iteration_chars": 3000, "max_iterations": 3})
+    s = d.seed(auth_client, "Neo4j adaptive")
+    ws = s["ws"]["id"]
+    try:
+        first = d.run(auth_client, ws, d.QUESTION_1, "First")
+        assert first["status"] == "completed", first["error"]
+        keys = {e["step_key"]: e for e in auth_client.get(f"/api/v1/investigations/{first['id']}/executions").json()}
+        assert keys["r1:graph_sync:knowledge"]["status"] == "succeeded"
+        assert any(k.startswith("r1:graph_sync:knowledge:i") and e["status"] == "succeeded" for k, e in keys.items())
+        second = d.run(auth_client, ws, d.QUESTION_2, "Second")
+        assert second["status"] == "completed", second["error"]
+        report = auth_client.get(f"/api/v1/workspaces/{ws}/graph/consistency").json()
+        assert report["consistent"], report
+        with neo4j_client._driver.session() as session:
+            found = session.run("MATCH (i:Investigation {workspace_id: $ws})-[:FOUND]->(c:Claim) RETURN count(DISTINCT i) AS n", ws=ws).single()["n"]
+        assert found == 2
+    finally:
+        _wipe(neo4j_client, ws)

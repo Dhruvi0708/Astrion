@@ -142,6 +142,24 @@ All routes are owner-scoped: another user's investigation, workspace or entity i
 | `GET /workspaces/{ws}/graph/entities/{entity_id}` | Entity with aliases, mentions, claims (with evidence and source) and relationships (with supporting claim ids). |
 | `GET /workspaces/{ws}/graph/consistency` | PostgreSQL vs Neo4j: counts and missing/orphaned keys, `consistent`. |
 
+### Phase 3 routes
+
+| Method & path | Result |
+|---|---|
+| `GET /investigations/{id}/runs` | Per run: budget, usage (model calls, tokens, estimated cost), iterations, `stop_reason`, `plan_history`, `recommendations`. |
+| `GET /investigations/{id}/next-steps` | Latest run's ranked recommendations: `{kind, target, score, factors, explanation, method}`. |
+| `GET /investigations/{id}/assessments` | Latest run's exploration decisions: coverage per sub-question, scored candidate actions with explanations, stop/continue and reason. |
+| `GET /investigations/{id}/messages` | Agent-to-agent messages (`challenge`, `rebuttal`, `concession`, `revision`, `verdict`) with cited claim ids. |
+| `GET /investigations/{id}/sources` | Source assessments for the latest run (relevance, credibility prior, recency, independence, corroboration, with their bases). |
+| `GET /workspaces/{ws}/insights` | Cross-investigation connections, bridging entities, corroborated relationships, patterns, hypothesis evolution, gaps. |
+| `GET /workspaces/{ws}/graph/entities/{id}/timeline` | Claims (with period, year basis, supersession) and change-log events for an entity, in time order. |
+
+Phase 3 also adds fields to existing payloads:
+- **Hypotheses:** `reasoning_type`, `assumptions`, `falsification_conditions`, `consensus`, `debate`, `revises_hypothesis_id`.
+- **Claims:** `valid_from_year`, `valid_to_year`, `superseded_by_id`.
+- **Contradictions:** `resolution_kind`, `resolution`.
+- **Comparison:** an `evolution` list.
+
 ## Not in v1 (intentionally)
 
 No endpoints exist for simulations, human verification of hypotheses, or editing extracted knowledge. They will be added with their features rather than as placeholder endpoints.

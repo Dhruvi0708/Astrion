@@ -115,6 +115,8 @@ class AgentRole(StrEnum):
     contradiction = "contradiction"
     verification = "verification"
     synthesis = "synthesis"
+    planner = "planner"  # Phase 3: re-plans between research iterations
+    challenger = "challenger"  # Phase 3: argues against hypotheses in the debate
 
 
 class ExecutionStatus(StrEnum):

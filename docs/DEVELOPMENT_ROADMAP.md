@@ -32,8 +32,26 @@ Done: text extraction (PDF, txt, md, csv, json, html); seven agents with typed c
 4. Human verification workflow: move hypotheses to `verified`/`refuted`, and edit or reject claims.
 5. A shared job queue if more than one API instance runs investigations (the runner is in-process).
 
-## Phase 3 — Discover & Evolve
-- Gap analysis over graph coverage, cross-investigation hypothesis tracking, graph snapshots and confidence history.
+## Phase 3 — Autonomous intelligence *(this release, uncommitted on `foundation-hardening`)*
+Done:
+- adaptive, budgeted investigation planning with a Planner agent and explained active-learning choices
+- persistent memory reused by new investigations
+- Challenger/Defense debate with evidence-based consensus
+- reasoning types with a causal guard
+- falsification conditions
+- temporal intelligence (periods, supersession, temporal resolution, timelines)
+- source intelligence kept separate from claim confidence
+- cross-investigation insights and an evolution diff
+- run provenance
+- a reproducible evaluation harness with two gold datasets
+
+See [INTELLIGENCE_ENGINE.md](INTELLIGENCE_ENGINE.md#phase-3--autonomous-intelligence) and [EVALUATION.md](EVALUATION.md).
+
+### Remaining
+1. Run the benchmarks and a few investigations with a real `ANTHROPIC_API_KEY`; review hypothesis and debate quality by hand.
+2. Semantic retrieval (embeddings) alongside BM25, for paraphrased evidence.
+3. A human verification workflow (accept or reject claims, mark hypotheses verified).
+4. A shared job queue for multiple API instances.
 
 ## Phase 5 — Simulate
 - Evidence-grounded scenario models with uncertainty; `simulation_scenarios.is_illustrative=false` only for real engine output.

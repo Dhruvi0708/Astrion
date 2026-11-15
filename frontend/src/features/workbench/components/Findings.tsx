@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/States';
 import { cn } from '@/lib/cn';
 import type { ClaimRecord, ContradictionRecord, HypothesisRecord, InvestigationReport, VerificationRecord } from '@/lib/api/types';
-import { ANSWER_STATUS, VERDICT } from '../status';
+import { ANSWER_STATUS, CONSENSUS, REASONING, VERDICT } from '../status';
+import { DebateThread } from './Intelligence';
 
 function Evidence({ claim }: { claim: Pick<ClaimRecord, 'document' | 'source'> & { evidence: { quote: string }[] } }) {
   return (
@@ -41,6 +42,16 @@ export function ClaimItem({ claim, compact }: { claim: ClaimRecord; compact?: bo
           </Badge>
           {claim.subject && <Badge tone="cyan">{claim.subject.name}</Badge>}
           {claim.temporal_scope && <span className="text-2xs text-ink-faint">{claim.temporal_scope}</span>}
+          {claim.valid_from_year && (
+            <span className="text-2xs text-ink-faint" title="Period the claim speaks about (parsed)">
+              {claim.valid_to_year && claim.valid_to_year !== claim.valid_from_year ? `${claim.valid_from_year}–${claim.valid_to_year}` : claim.valid_from_year}
+            </span>
+          )}
+          {claim.superseded_by_id && (
+            <Badge tone="unverified" title="A newer claim about the same subject reports different figures">
+              outdated
+            </Badge>
+          )}
         </div>
         <p className="mt-2 text-sm leading-relaxed text-ink">{claim.statement}</p>
       </button>
@@ -113,6 +124,21 @@ export function HypothesisCard({
         <Badge tone="neutral" title="Agent verdicts never mark a hypothesis verified; that takes a person.">
           {h.status.replace('_', ' ')}
         </Badge>
+        {h.reasoning_type && REASONING[h.reasoning_type] && (
+          <Badge tone={REASONING[h.reasoning_type].tone} title={REASONING[h.reasoning_type].meaning}>
+            {REASONING[h.reasoning_type].label}
+          </Badge>
+        )}
+        {h.consensus && CONSENSUS[h.consensus] && (
+          <Badge tone={CONSENSUS[h.consensus].tone} title={CONSENSUS[h.consensus].meaning}>
+            consensus: {CONSENSUS[h.consensus].label}
+          </Badge>
+        )}
+        {h.revises_hypothesis_id && (
+          <Badge tone="hypothesis" title="Re-evaluates a hypothesis from an earlier investigation">
+            revises earlier
+          </Badge>
+        )}
         {m && (
           <span className="text-2xs text-ink-faint" title={`${m.method}: ${JSON.stringify(m.components)}`}>
             confidence {m.score.toFixed(2)} ({m.band}) · {m.method}
@@ -127,6 +153,31 @@ export function HypothesisCard({
       <p className="mt-2 text-sm leading-relaxed text-ink">{h.statement}</p>
       <p className="mt-1.5 whitespace-pre-line text-xs leading-relaxed text-ink-muted">{h.rationale}</p>
       {h.test_plan && <p className="mt-1.5 text-xs text-ink-muted">Test: {h.test_plan}</p>}
+      {h.debate?.reasoning_check && <p className="mt-1.5 text-2xs text-caution">{h.debate.reasoning_check}</p>}
+      {!!(h.falsification_conditions?.length || h.assumptions?.length) && (
+        <div className="mt-2 grid gap-2 md:grid-cols-2">
+          {!!h.falsification_conditions?.length && (
+            <div>
+              <p className="eyebrow mb-1">Would be falsified by</p>
+              <ul className="list-disc space-y-0.5 pl-4 text-xs text-ink-muted">
+                {h.falsification_conditions.map((f, i) => (
+                  <li key={i}>{f}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!!h.assumptions?.length && (
+            <div>
+              <p className="eyebrow mb-1">Unresolved assumptions</p>
+              <ul className="list-disc space-y-0.5 pl-4 text-xs text-ink-muted">
+                {h.assumptions.map((a, i) => (
+                  <li key={i}>{a}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
       {m && (
         <p className="mt-1.5 text-2xs text-ink-faint">
           {m.inputs.supporting_claims} supporting ({m.inputs.supporting_explicit} explicit) from {m.inputs.distinct_supporting_sources} source(s) ·{' '}
@@ -155,6 +206,11 @@ export function HypothesisCard({
         })}
       </div>
       <div className="mt-3">
+        {h.debate?.objections && (
+          <div className="mb-2">
+            <DebateThread debate={h.debate} claimsById={claimsById} />
+          </div>
+        )}
         <VerificationBox v={h.verification} />
       </div>
     </li>
@@ -172,6 +228,11 @@ export function ContradictionCard({ x }: { x: ContradictionRecord }) {
         <span className="text-2xs text-ink-faint">severity {x.severity}</span>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-ink-muted">{x.explanation}</p>
+      {x.resolution && (
+        <p className="mt-1.5 rounded border border-verified/30 bg-verified/[0.05] px-2 py-1 text-xs text-ink-muted" data-testid="resolution">
+          <span className="text-verified">Resolved ({x.resolution_kind}):</span> {x.resolution}
+        </p>
+      )}
       <div className="mt-3 grid gap-2 md:grid-cols-2">
         {[x.claim_a, x.claim_b].map((c, i) => (
           <div key={c.id} className="rounded-md border border-line bg-deep/40 p-2.5">

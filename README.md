@@ -2,7 +2,18 @@
 
 ASTRION turns fragmented information into an interconnected, evolving knowledge universe: sources become documents, documents yield claims and evidence, claims connect into a traceable knowledge graph, and agents investigate that graph to surface contradictions, gaps and hypotheses.
 
-**Current state: Phase 2, the core intelligence engine.** Ask a question over your documents and seven agents (Orchestrator, Research, Knowledge, Hypothesis, Contradiction, Verification, Synthesis) produce evidence-checked claims, an evolving knowledge graph (PostgreSQL + Neo4j), hypotheses with a transparent confidence method, contradictions, verification verdicts and a cited report. Every step is recorded and resumable. The engine is in [docs/INTELLIGENCE_ENGINE.md](docs/INTELLIGENCE_ENGINE.md).
+**Current state: Phase 3, autonomous intelligence.** On top of the Phase 2 engine, investigations now:
+- plan adaptively within hard budgets, explaining each next step
+- reuse workspace memory
+- debate hypotheses (Challenger vs author, judged by an independent verifier, with evidence-based consensus)
+- label reasoning as correlation, causation, inference or speculation, with falsification conditions
+- track time (outdated claims, period-based conflict resolution)
+- assess sources separately from claims
+- connect findings across investigations
+
+A reproducible benchmark harness scores the engine ([docs/EVALUATION.md](docs/EVALUATION.md)).
+
+**Phase 2, the core intelligence engine:** Ask a question over your documents and seven agents (Orchestrator, Research, Knowledge, Hypothesis, Contradiction, Verification, Synthesis) produce evidence-checked claims, an evolving knowledge graph (PostgreSQL + Neo4j), hypotheses with a transparent confidence method, contradictions, verification verdicts and a cited report. Every step is recorded and resumable. The engine is in [docs/INTELLIGENCE_ENGINE.md](docs/INTELLIGENCE_ENGINE.md).
 
 > **Not yet verified with real Claude output.** No API key was available while building Phase 2. Tests and the e2e flow use the deterministic *fixture* provider, which the UI always labels "not AI".
 
@@ -108,6 +119,8 @@ npx playwright install chromium
 npm run e2e
 ```
 
+Benchmarks: `cd backend && python -m app.evaluation` (fixture: free and deterministic) · `--provider anthropic` for a real model.
+
 Details: [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) · CI: [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## Documentation
@@ -115,6 +128,6 @@ Details: [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) · CI: [.github/wo
 - [Product requirements](docs/PRODUCT_REQUIREMENTS.md) · [Development roadmap](docs/DEVELOPMENT_ROADMAP.md)
 - [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Frontend architecture](docs/FRONTEND_ARCHITECTURE.md) · [Design system](docs/DESIGN_SYSTEM.md)
 - [Authentication, authorization & security](docs/SECURITY_AND_AUTH.md)
-- [Intelligence engine](docs/INTELLIGENCE_ENGINE.md) · [Document storage](docs/STORAGE.md) · [Neo4j](docs/NEO4J.md) · [AI providers](docs/AI_PROVIDERS.md)
+- [Intelligence engine](docs/INTELLIGENCE_ENGINE.md) · [Evaluation](docs/EVALUATION.md) · [Document storage](docs/STORAGE.md) · [Neo4j](docs/NEO4J.md) · [AI providers](docs/AI_PROVIDERS.md)
 - [Database schema](docs/DATABASE_SCHEMA.md) · [API contract](docs/API_CONTRACT.md)
 - [Testing strategy & CI](docs/TESTING_STRATEGY.md)

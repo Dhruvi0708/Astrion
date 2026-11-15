@@ -9,6 +9,9 @@ import { clusterById, nodeById, sampleGraph } from '@/data/sample/graph';
 import { cn } from '@/lib/cn';
 import { EvidenceLattice } from './components/EvidenceLattice';
 import { computeCoverage } from './coverage';
+import { WorkspaceInsights } from './WorkspaceInsights';
+import { Segmented } from '@/components/ui/Segmented';
+import { useActiveWorkspace } from '@/features/workspaces/useActiveWorkspace';
 
 const CONFIDENCE = {
   low: { label: 'Low', bars: 1 },
@@ -144,7 +147,7 @@ function ContradictionComparison() {
   );
 }
 
-export default function DiscoveryLabPage() {
+function SampleDiscovery({ toggle }: { toggle: React.ReactNode }) {
   const [params, setParams] = useSearchParams();
   const active = DISCOVERIES.find((d) => d.id === params.get('d')) ?? DISCOVERIES[3];
   const meta = DISCOVERY_META[active.type];
@@ -160,10 +163,11 @@ export default function DiscoveryLabPage() {
         title="Discovery Laboratory"
         badges={<SampleBadge label="Sample discoveries" />}
         description="Examine hypotheses, contradictions and knowledge gaps — each tied to the evidence that produced it, and labelled by verification status."
+        actions={toggle}
       />
       <Notice className="mt-5">
-        Every item here is a hand-written sample built on fictional sources. None is a verified finding. Automated discovery is planned; when it arrives,
-        AI-generated hypotheses will always start as <strong className="font-medium text-ink">Unverified</strong>.
+        Every item here is a hand-written sample built on fictional sources. None is a verified finding. Switch to “Workspace insights” for what your own
+        investigations have found.
       </Notice>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
@@ -299,6 +303,41 @@ export default function DiscoveryLabPage() {
           </div>
         </div>
       </Panel>
+    </Page>
+  );
+}
+
+type LabView = 'workspace' | 'sample';
+
+/** Real cross-investigation insights for the active workspace, or the illustrative sample lab. */
+export default function DiscoveryLabPage() {
+  const [params, setParams] = useSearchParams();
+  const view: LabView = params.get('view') === 'sample' ? 'sample' : 'workspace';
+  const { active } = useActiveWorkspace();
+  const toggle = (
+    <Segmented<LabView>
+      label="Discovery source"
+      value={view}
+      onChange={(v) => setParams(v === 'sample' ? { view: 'sample' } : {}, { replace: true })}
+      options={[
+        { value: 'workspace', label: 'Workspace insights' },
+        { value: 'sample', label: 'Sample lab' },
+      ]}
+    />
+  );
+  useEffect(() => {
+    document.title = 'Discovery Laboratory · ASTRION';
+  }, []);
+  if (view === 'sample') return <SampleDiscovery toggle={toggle} />;
+  return (
+    <Page>
+      <PageHeader
+        eyebrow="Discovery Laboratory"
+        title="Discovery Laboratory"
+        description="Connections, patterns, evolving hypotheses and knowledge gaps across every investigation in this workspace."
+        actions={toggle}
+      />
+      <div className="mt-6">{active ? <WorkspaceInsights workspaceId={active.id} /> : <p className="text-sm text-ink-muted">Create a workspace first.</p>}</div>
     </Page>
   );
 }

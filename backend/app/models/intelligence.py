@@ -2,8 +2,9 @@
 the graph change log. PostgreSQL is the system of record for all of them."""
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, JSONType, Timestamps, UUIDPrimaryKey
@@ -46,6 +47,8 @@ class Contradiction(UUIDPrimaryKey, Timestamps, Base):
     is_genuine: Mapped[bool] = mapped_column(Boolean, nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
     severity: Mapped[str] = mapped_column(String(16), default="medium", nullable=False)
+    resolution_kind: Mapped[str | None] = mapped_column(String(16))  # temporal | verification
+    resolution: Mapped[str | None] = mapped_column(Text)
 
 
 class VerificationResult(UUIDPrimaryKey, Timestamps, Base):
@@ -91,4 +94,70 @@ class GraphChange(UUIDPrimaryKey, Timestamps, Base):
     investigation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("investigations.id", ondelete="SET NULL"))
     change_type: Mapped[GraphChangeType] = mapped_column(db_enum(GraphChangeType, "graph_change_type"), nullable=False)
     target_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    details: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+
+
+# --------------------------------------------------------------------------- Phase 3
+
+
+class InvestigationRun(UUIDPrimaryKey, Timestamps, Base):
+    """Per-run provenance: budget, usage, iterations, why the run stopped exploring, and the
+    next-step recommendations computed when it finished."""
+
+    __tablename__ = "investigation_runs"
+    __table_args__ = (UniqueConstraint("investigation_id", "run_number", name="uq_investigation_runs_number"),)
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True)
+    run_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
+    provider: Mapped[str | None] = mapped_column(String(64))
+    model: Mapped[str | None] = mapped_column(String(128))
+    budget: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    usage: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    iterations: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    stop_reason: Mapped[str | None] = mapped_column(Text)
+    plan_history: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    recommendations: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AgentMessage(UUIDPrimaryKey, Timestamps, Base):
+    """Structured agent-to-agent communication (debate turns, evidence exchange, verdicts)."""
+
+    __tablename__ = "agent_messages"
+    __table_args__ = (Index("ix_agent_messages_subject", "investigation_id", "subject_id"),)
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False)
+    run_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    execution_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_executions.id", ondelete="SET NULL"))
+    sender_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    recipient_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)  # proposal | challenge | rebuttal | concession | revision | verdict
+    subject_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    subject_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    round: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    content: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    cited_claim_ids: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+
+
+class SourceAssessment(UUIDPrimaryKey, Timestamps, Base):
+    """How much a source should be trusted for one investigation run. Deliberately separate from the
+    confidence of any individual claim it contains."""
+
+    __tablename__ = "source_assessments"
+    __table_args__ = (UniqueConstraint("investigation_id", "run_number", "source_id", name="uq_source_assessments_run_source"),)
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True)
+    run_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"), nullable=False)
+    independence_group: Mapped[str] = mapped_column(String(64), nullable=False)
+    relevance: Mapped[float] = mapped_column(Float, nullable=False)
+    credibility: Mapped[float] = mapped_column(Float, nullable=False)
+    recency: Mapped[float | None] = mapped_column(Float)
+    independence: Mapped[float] = mapped_column(Float, nullable=False)
+    corroboration: Mapped[float | None] = mapped_column(Float)
     details: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)

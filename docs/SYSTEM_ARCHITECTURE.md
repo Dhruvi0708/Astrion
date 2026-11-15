@@ -79,6 +79,7 @@ Dependency health endpoints always return 200 with a status field so dashboards 
 
 - Credentials are read from server environment variables only. The frontend never sees them.
 - Agents call Claude (`claude-opus-5-5`, configurable) through `ClaudeStructuredLLM`, which uses streaming, adaptive thinking, an explicit `effort`, and JSON-schema structured outputs re-validated with Pydantic. There is no server-side fallback and no SDK retries. Refusals and truncation raise typed errors.
+- Phase 3 adds memory, budgeted adaptive exploration (Planner), a Challenger/Defense debate with evidence-based consensus, temporal and source intelligence, active-learning recommendations and cross-investigation insights. All of it is recorded, deterministic where it is code, and bounded by hard run budgets. An evaluation harness ([EVALUATION.md](EVALUATION.md)) scores the engine against gold datasets.
 - Investigations run in a bounded thread pool inside the API process. State lives in PostgreSQL, so a restart marks in-flight runs `interrupted` and they can be resumed. Lifecycle, agents and guarantees: [INTELLIGENCE_ENGINE.md](INTELLIGENCE_ENGINE.md).
 
 ## Frontend

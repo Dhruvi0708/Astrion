@@ -2,11 +2,12 @@
 
 Confidence is computed from the evidence, not taken from the model:
 
-    weight(claim)   = 1.0 if explicit else 0.5
+    weight(claim)   = (1.0 if explicit else 0.5) × (0.5 if superseded by a newer claim else 1.0)
     support         = Σ weight(supporting claims)
     opposition      = Σ weight(opposing claims)
     balance         = support / (support + opposition + 1)            # +1 = prior of one unit of doubt
-    diversity       = min(1, 0.5 + 0.25 × (distinct supporting sources − 1))
+    diversity       = min(1, 0.5 + 0.25 × (independent supporting source groups − 1))
+                      # sources sharing a web host, an author or identical content count once
     evidence_score  = balance × diversity
     final           = evidence_score × verification_factor(verdict)
 
@@ -29,10 +30,14 @@ VERIFICATION_FACTOR = {
 }
 
 
+METHOD = "astrion-evidence-v2"
+
+
 @dataclass(frozen=True)
 class ClaimWeight:
     explicit: bool
-    source_id: str
+    source_id: str  # independence group of the claim's source (falls back to the source id)
+    superseded: bool = False
 
 
 def band(score: float) -> str:
@@ -40,7 +45,7 @@ def band(score: float) -> str:
 
 
 def hypothesis_confidence(supporting: list[ClaimWeight], opposing: list[ClaimWeight], verdict: str | None = None, plausibility: str | None = None) -> dict:
-    w = lambda c: 1.0 if c.explicit else 0.5  # noqa: E731
+    w = lambda c: (1.0 if c.explicit else 0.5) * (0.5 if c.superseded else 1.0)  # noqa: E731
     support = sum(w(c) for c in supporting)
     opposition = sum(w(c) for c in opposing)
     balance = support / (support + opposition + 1)
@@ -50,7 +55,7 @@ def hypothesis_confidence(supporting: list[ClaimWeight], opposing: list[ClaimWei
     factor = VERIFICATION_FACTOR.get(verdict, VERIFICATION_FACTOR[None])
     final = round(evidence_score * factor, 4)
     return {
-        "method": "astrion-evidence-v1",
+        "method": METHOD,
         "score": final,
         "band": band(final),
         "inputs": {
@@ -58,6 +63,7 @@ def hypothesis_confidence(supporting: list[ClaimWeight], opposing: list[ClaimWei
             "supporting_explicit": sum(1 for c in supporting if c.explicit),
             "opposing_claims": len(opposing),
             "distinct_supporting_sources": sources,
+            "superseded_supporting": sum(1 for c in supporting if c.superseded),
             "verification_verdict": verdict,
             "model_plausibility": plausibility,
         },
