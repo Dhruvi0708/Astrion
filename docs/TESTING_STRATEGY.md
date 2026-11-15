@@ -49,7 +49,7 @@ The backend-offline browser tests simulate the outage by aborting `/api/v1/*` re
 | `backend` | Services: PostgreSQL 16, Neo4j 5.26 Community. Ruff lint + format check, Alembic upgrade → downgrade → upgrade → check, pytest on SQLite, then pytest on PostgreSQL + Neo4j with **no skips allowed** |
 | `e2e` | Services: PostgreSQL 16. Migrations, Playwright Chromium; HTML report uploaded on failure |
 
-The Phase 1.5 commit was pushed, but its CI run has not been reviewed here. The Phase 2 changes are uncommitted and have not run in CI. Vitest is scoped to `src/**/*.test.*`; before Phase 2 it also collected the Playwright specs, so `npm test` (and the CI frontend job) failed.
+Until the fix after Phase 2, **CI never ran**. GitHub rejected the workflow file because the e2e job's job-level `env` used `${{ runner.temp }}`, and the `runner` context is only allowed at step level. Both pushed runs (`5e834b0`, `af67524`) failed with zero jobs. The variable now lives in the Playwright step's `env`. Vitest is scoped to `src/**/*.test.*`; before Phase 2 it also collected the Playwright specs, so `npm test` (and the CI frontend job) failed.
 
 ## Phase 1.5 results (2026-11-12, local Windows 11)
 

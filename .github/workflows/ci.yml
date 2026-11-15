@@ -105,7 +105,6 @@ jobs:
     env:
       ASTRION_ENVIRONMENT: test
       ASTRION_DATABASE_URL: postgresql+psycopg://astrion:astrion@localhost:5432/astrion
-      ASTRION_STORAGE_LOCAL_ROOT: ${{ runner.temp }}/astrion-storage
       E2E_PYTHON: python
     steps:
       - uses: actions/checkout@v4
@@ -131,6 +130,9 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Playwright
         working-directory: frontend
+        # The runner context is only available at step level (job-level env can't use it).
+        env:
+          ASTRION_STORAGE_LOCAL_ROOT: ${{ runner.temp }}/astrion-storage
         run: npx playwright test
       - uses: actions/upload-artifact@v4
         if: failure()
