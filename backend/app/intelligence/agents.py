@@ -45,6 +45,7 @@ class Agent(Generic[In, Out]):
     output_type: ClassVar[type[BaseModel]]
     system: ClassVar[str]
     effort: ClassVar[str] = "medium"
+    name: ClassVar[str | None] = None  # defaults to the role
     max_tokens: ClassVar[int] = 16000
 
     def prompt(self, payload: In) -> str:
@@ -58,7 +59,7 @@ class Agent(Generic[In, Out]):
 
     def run(self, payload: In, llm: StructuredLLM) -> AgentRun[Out]:
         result = llm.generate(
-            agent=self.role.value,
+            agent=self.name or self.role.value,
             system=self.system,
             prompt=self.prompt(payload),
             output_type=self.output_type,
@@ -205,7 +206,13 @@ class HypothesisAgent(Agent[c.HypothesisInput, c.HypothesisOutput]):
         "documents) and propose up to 5 testable hypotheses that would help answer the research question. A hypothesis "
         "is a proposal, not a fact: phrase it conditionally, explain the reasoning, cite the claim refs (C…) that support "
         "it and any that cut against it, state assumptions, and describe a concrete way to test it. Do not restate a "
-        "single claim as a hypothesis. If the evidence is too thin to propose anything meaningful, return none."
+        "single claim as a hypothesis. If the evidence is too thin to propose anything meaningful, return none. "
+        "Classify each hypothesis honestly: 'causation' only when cited claims assert a causal mechanism, "
+        "'correlation' when they only show things co-occurring, 'inference' when it is your reasoning beyond what "
+        "the claims state, 'speculation' when evidence is thin. Give falsification_conditions: observations that "
+        "would show the hypothesis is wrong. prior_hypotheses (PH…) come from earlier investigations: if you "
+        "re-evaluate one in the light of the new claims, set revisits_prior_ref instead of proposing a duplicate. "
+        "cross_links are connections between entities found by different investigations; use them only with claims."
     )
 
     def post_validate(self, payload, output):
@@ -218,7 +225,18 @@ class HypothesisAgent(Agent[c.HypothesisInput, c.HypothesisOutput]):
             if not sup:
                 notes.append(f"Hypothesis {i} rejected: no valid supporting claims.")
                 continue
-            kept.append(h.model_copy(update={"supporting_claim_refs": sup, "opposing_claim_refs": opp}))
+            prior = {p.ref for p in payload.prior_hypotheses}
+            revisits = h.revisits_prior_ref if h.revisits_prior_ref in prior else None
+            if h.revisits_prior_ref and not revisits:
+                notes.append(f"Hypothesis {i}: unknown prior hypothesis {h.revisits_prior_ref} ignored.")
+            falsification = [f for f in h.falsification_conditions if f.strip()]
+            if not falsification:
+                notes.append(f"Hypothesis {i}: no falsification condition given.")
+            kept.append(
+                h.model_copy(
+                    update={"supporting_claim_refs": sup, "opposing_claim_refs": opp, "revisits_prior_ref": revisits, "falsification_conditions": falsification}
+                )
+            )
         return output.model_copy(update={"hypotheses": kept}), notes
 
 
@@ -265,7 +283,10 @@ class VerificationAgent(Agent[c.VerificationInput, c.VerificationOutput]):
         "supports it: 'supported', 'partially_supported', 'unsupported', 'insufficient_evidence', or 'contradicted' "
         "(evidence points the other way). Check that each cited claim is relevant and that inferred claims are not "
         "treated as facts. List concrete issues, the evidence that is missing, and any cited claim refs that do not "
-        "support the conclusion. Review every item."
+        "support the conclusion. Review every item. Hypotheses may come with a debate transcript (a challenger's "
+        "objections and the author's responses): weigh only arguments that cite evidence, and check that the stated "
+        "reasoning type (causation, correlation, inference, speculation) matches what the evidence can show. For "
+        "contradictions, a temporal_note means the claims speak about different periods."
     )
 
     def post_validate(self, payload, output):
@@ -332,6 +353,117 @@ class SynthesisAgent(Agent[c.SynthesisInput, c.SynthesisOutput]):
         return output.model_copy(update={"key_findings": findings, "hypotheses": hyps, "contradictions": cons, "answer_status": status}), notes
 
 
+class PlannerAgent(Agent[c.PlannerInput, c.PlannerOutput]):
+    role = AgentRole.planner
+    title = "Planner"
+    responsibility = "Re-plans between research iterations: judges sufficiency, picks the next evidence to read, adapts sub-questions."
+    input_type = c.PlannerInput
+    output_type = c.PlannerOutput
+    effort = "medium"
+    system = (
+        "You are the Planner Agent of ASTRION. An investigation is under way. You see how well each sub-question is "
+        "covered by evidenced claims and a scored list of candidate actions (unread passages the system can research "
+        "next), each with an explanation. Decide whether the evidence is sufficient to answer the question. If not, "
+        "select up to 3 candidate action ids worth their cost, and optionally add up to 2 new sub-questions that the "
+        "recent findings raise. List the evidence gaps that remain. You can only choose from the listed candidates."
+    )
+
+    def post_validate(self, payload, output):
+        notes: list[str] = []
+        valid = {a.id for a in payload.candidates}
+        chosen = []
+        for a in output.selected_action_ids:
+            if a not in valid:
+                notes.append(f"Unknown action {a} ignored.")
+            elif a not in chosen:
+                chosen.append(a)
+        if len(chosen) > 3:
+            notes.append(f"{len(chosen) - 3} extra actions dropped (limit 3).")
+            chosen = chosen[:3]
+        if output.sufficient and chosen:
+            notes.append("Planner declared sufficiency; selected actions ignored.")
+            chosen = []
+        return output.model_copy(update={"selected_action_ids": chosen, "new_sub_questions": output.new_sub_questions[:2]}), notes
+
+
+class ChallengerAgent(Agent[c.ChallengerInput, c.ChallengerOutput]):
+    role = AgentRole.challenger
+    title = "Challenger"
+    responsibility = "Argues against each hypothesis: alternative explanations, confounders, weak evidence, counter-evidence."
+    input_type = c.ChallengerInput
+    output_type = c.ChallengerOutput
+    effort = "high"
+    system = (
+        "You are the Challenger Agent of ASTRION: a constructive adversary. For each hypothesis (H…), raise the "
+        "strongest objections a careful scientist would: alternative explanations, confounders, insufficient or "
+        "inferred-only evidence, temporal mismatch, overreach in scope, counter-evidence among the claims, or a "
+        "reasoning type that overstates the evidence (e.g. causation from correlation). Counter-evidence objections "
+        "must cite claim refs (C…). Do not invent facts; argue only from the claims provided. Rate how strong your "
+        "challenge is overall. If a hypothesis is solid, say so with a weak challenge rather than inventing problems."
+    )
+
+    def post_validate(self, payload, output):
+        notes: list[str] = []
+        hyps = {h.ref for h in payload.hypotheses}
+        claims = {cl.ref for cl in payload.claims}
+        kept, seen = [], set()
+        for ch in output.challenges:
+            if ch.hypothesis_ref not in hyps or ch.hypothesis_ref in seen:
+                notes.append(f"Challenge for {ch.hypothesis_ref} ignored (unknown or duplicate).")
+                continue
+            seen.add(ch.hypothesis_ref)
+            objections = []
+            for o in ch.objections[:5]:
+                refs = [r for r in o.cited_claim_refs if r in claims]
+                if o.kind == "counter_evidence" and not refs:
+                    notes.append(f"{ch.hypothesis_ref}: counter-evidence objection without valid citations dropped.")
+                    continue
+                objections.append(o.model_copy(update={"cited_claim_refs": refs}))
+            kept.append(ch.model_copy(update={"objections": objections}))
+        return output.model_copy(update={"challenges": kept}), notes
+
+
+class DefenseAgent(Agent[c.DefenseInput, c.DefenseOutput]):
+    role = AgentRole.hypothesis
+    name = "hypothesis_defense"
+    title = "Hypothesis (defense)"
+    responsibility = "Answers each objection for the hypotheses it proposed: rebut with evidence, concede, or revise."
+    input_type = c.DefenseInput
+    output_type = c.DefenseOutput
+    effort = "high"
+    system = (
+        "You are the Hypothesis Agent of ASTRION, answering a challenger's objections to your hypotheses. For each "
+        "objection (H1.O1 …) choose: 'rebut' (only with cited claim refs that answer it), 'concede' (the objection "
+        "stands), or 'revise' (the hypothesis should change). When you revise, give the revised statement and an "
+        "honest reasoning type. Do not defend a hypothesis the evidence cannot carry; conceding is a valid outcome."
+    )
+
+    def post_validate(self, payload, output):
+        notes: list[str] = []
+        objections = {o.id for o in payload.objections}
+        claims = {cl.ref for cl in payload.claims}
+        hyps = {h.ref for h in payload.hypotheses}
+        responses, seen = [], set()
+        for r in output.responses:
+            if r.objection_id not in objections or r.objection_id in seen:
+                notes.append(f"Response to {r.objection_id} ignored (unknown or duplicate).")
+                continue
+            seen.add(r.objection_id)
+            refs = [x for x in r.cited_claim_refs if x in claims]
+            if r.stance == "rebut" and not refs:
+                notes.append(f"{r.objection_id}: rebuttal cites no evidence; it will not count as answering the objection.")
+            responses.append(r.model_copy(update={"cited_claim_refs": refs}))
+        for missing in sorted(objections - seen):
+            notes.append(f"{missing}: no response (the objection stands).")
+        revisions = [r for r in output.revisions if r.hypothesis_ref in hyps]
+        return output.model_copy(update={"responses": responses, "revisions": revisions}), notes
+
+
 AGENTS: dict[AgentRole, Agent] = {
     a.role: a for a in (OrchestratorAgent(), ResearchAgent(), KnowledgeAgent(), HypothesisAgent(), ContradictionAgent(), VerificationAgent(), SynthesisAgent())
 }
+PLANNER = PlannerAgent()
+CHALLENGER = ChallengerAgent()
+DEFENSE = DefenseAgent()
+AGENTS[AgentRole.planner] = PLANNER
+AGENTS[AgentRole.challenger] = CHALLENGER

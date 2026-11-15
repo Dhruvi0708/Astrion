@@ -143,13 +143,15 @@ class KnowledgeStore:
     def _change(self, change_type: GraphChangeType, target_key: str, **details) -> None:
         self.db.add(GraphChange(workspace_id=self.ws, investigation_id=self.inv.id, change_type=change_type, target_key=target_key, details=details))
 
-    def apply(self, batches: list[ResearchBatch], merges: dict[str, uuid.UUID]) -> ApplySummary:
+    def apply(self, batches: list[ResearchBatch], merges: dict[str, uuid.UUID], iteration: int = 1) -> ApplySummary:
         """``merges`` maps "type|normalized" of a new entity to the existing entity it duplicates."""
         now = datetime.now(UTC)
         summary = ApplySummary()
         by_key: dict[str, GraphEntity] = {}
         for e in self._existing():
             by_key[f"{e.entity_type}|{e.normalized_name}"] = e
+
+        created: set[uuid.UUID] = set()
 
         def resolve_entity(ent: c.ResearchEntity, batch: ResearchBatch) -> GraphEntity | None:
             norm = normalize_name(ent.name)
@@ -183,6 +185,7 @@ class KnowledgeStore:
                 )
                 self.db.add(row)
                 by_key[key] = row
+                created.add(eid)
                 summary.entities_created += 1
                 self._change(GraphChangeType.entity_created, row.graph_key, name=row.name, entity_type=row.entity_type)
             elif row.id not in summary.entity_ids:
@@ -230,8 +233,13 @@ class KnowledgeStore:
                 claim_rows[rc.ref] = claim
                 if claim.id not in summary.claim_ids:
                     summary.claim_ids.append(claim.id)
-                    if self.db.get(InvestigationClaim, (self.inv.id, claim.id)) is None:
-                        self.db.add(InvestigationClaim(investigation_id=self.inv.id, claim_id=claim.id))
+                    link = self.db.get(InvestigationClaim, (self.inv.id, claim.id))
+                    if link is None:
+                        self.db.add(
+                            InvestigationClaim(investigation_id=self.inv.id, claim_id=claim.id, sub_question_ids=list(rc.sub_question_ids), iteration=iteration)
+                        )
+                    else:
+                        link.sub_question_ids = sorted(set(link.sub_question_ids or []) | set(rc.sub_question_ids))
                 existing_quotes = set(self.db.scalars(select(Evidence.quote).where(Evidence.claim_id == claim.id)))
                 for ev in rc.evidence:
                     if ev.quote in existing_quotes:
@@ -302,7 +310,26 @@ class KnowledgeStore:
                 if row.id not in summary.relationship_ids:
                     summary.relationship_ids.append(row.id)
         self.db.flush()
+        self._drop_unused(created, summary)
         return summary
+
+    def _drop_unused(self, created: set[uuid.UUID], summary: "ApplySummary") -> None:
+        """An entity created in this pass that no claim or relationship ended up using (e.g. the claim it was
+        extracted for already existed with another subject) is removed: the graph holds no orphan nodes."""
+        for eid in created:
+            used = self.db.scalar(select(Claim.id).where(Claim.subject_entity_id == eid).limit(1)) or self.db.scalar(
+                select(GraphRelationship.id).where((GraphRelationship.source_entity_id == eid) | (GraphRelationship.target_entity_id == eid)).limit(1)
+            )
+            if used:
+                continue
+            row = self.db.get(GraphEntity, eid)
+            for change in self.db.scalars(select(GraphChange).where(GraphChange.target_key == row.graph_key)):
+                self.db.delete(change)
+            self.db.delete(row)
+            summary.entities_created -= 1
+            if eid in summary.entity_ids:
+                summary.entity_ids.remove(eid)
+        self.db.flush()
 
 
 # ---------------------------------------------------------------------- graph sync

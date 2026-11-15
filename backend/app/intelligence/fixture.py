@@ -147,6 +147,9 @@ class FixtureLLM:
             if len(shared) < 2 or NEGATION.search(a.statement) or NEGATION.search(b.statement):
                 continue
             opposing = [x.ref for x in p.claims if x.ref not in (a.ref, b.ref) and NEGATION.search(x.statement) and len(self._shared(a, x)) >= 2]
+            causal = any(w.startswith(("cause", "increase", "drive", "lead")) for w in _terms(a.statement, b.statement))
+            words = set(_terms(a.statement, b.statement))
+            prior = next((ph.ref for ph in p.prior_hypotheses if len(words & set(_terms(ph.statement))) >= 2), None)
             hyps.append(
                 c.ProposedHypothesis(
                     statement=f"Evidence from '{a.document}' and '{b.document}' may describe a common relationship involving {', '.join(shared[:3])}.",
@@ -156,6 +159,9 @@ class FixtureLLM:
                     test_plan="Look for a source that measures both conditions together.",
                     assumptions=["Shared vocabulary indicates a shared subject (rule-based assumption)."],
                     plausibility="low",
+                    reasoning_type="causation" if causal else "correlation",
+                    falsification_conditions=[f"A source shows {shared[0]} without {shared[-1]} under comparable conditions."],
+                    revisits_prior_ref=prior,
                 )
             )
         return c.HypothesisOutput(hypotheses=hyps, patterns_observed=[f"{len(p.claims)} claims compared by shared terms (fixture)."])
@@ -207,6 +213,72 @@ class FixtureLLM:
                 )
             )
         return c.VerificationOutput(reviews=reviews, overall_assessment="Fixture verification: structural checks only.")
+
+    def _planner(self, p: c.PlannerInput) -> c.PlannerOutput:
+        best = p.candidates[0] if p.candidates else None
+        weak = [cv.sub_question_id for cv in p.coverage if cv.claims < 2]
+        if best is None or (not weak and best.score < 0.35):
+            return c.PlannerOutput(
+                sufficient=True,
+                rationale="Fixture rule: coverage met or nothing worth reading.",
+                selected_action_ids=[],
+                new_sub_questions=[],
+                evidence_gaps=weak,
+            )
+        return c.PlannerOutput(
+            sufficient=False,
+            rationale=f"Fixture rule: read the highest-scoring action ({best.id}, score {best.score}).",
+            selected_action_ids=[best.id],
+            new_sub_questions=[],
+            evidence_gaps=weak,
+        )
+
+    def _challenger(self, p: c.ChallengerInput) -> c.ChallengerOutput:
+        out = []
+        for h in p.hypotheses:
+            objections = []
+            if h.opposing:
+                objections.append(
+                    c.Objection(
+                        kind="counter_evidence", argument="Opposing claims cut against this hypothesis.", cited_claim_refs=[x.ref for x in h.opposing[:2]]
+                    )
+                )
+            if h.reasoning_type == "causation":
+                objections.append(c.Objection(kind="reasoning_type", argument="Co-occurring claims do not establish a causal mechanism.", cited_claim_refs=[]))
+            if all(x.kind == "inferred" for x in h.supporting) or len({x.document for x in h.supporting}) < 2:
+                objections.append(
+                    c.Objection(kind="insufficient_evidence", argument="Support comes from a single document or inference only.", cited_claim_refs=[])
+                )
+            out.append(
+                c.Challenge(
+                    hypothesis_ref=h.ref,
+                    objections=objections,
+                    alternative_hypothesis="The shared terms reflect a common topic, not a common mechanism." if objections else None,
+                    strength="strong" if len(objections) >= 2 else "moderate" if objections else "weak",
+                )
+            )
+        return c.ChallengerOutput(challenges=out)
+
+    def _hypothesis_defense(self, p: c.DefenseInput) -> c.DefenseOutput:
+        by_ref = {h.ref: h for h in p.hypotheses}
+        responses, revisions = [], []
+        for o in p.objections:
+            h = by_ref.get(o.hypothesis_ref)
+            if o.kind == "reasoning_type" and h is not None:
+                responses.append(c.DefenseResponse(objection_id=o.id, stance="revise", argument="Fixture rule: downgrade to correlation.", cited_claim_refs=[]))
+                revisions.append(c.Revision(hypothesis_ref=h.ref, revised_statement=h.statement, revised_reasoning_type="correlation"))
+            elif o.kind == "insufficient_evidence" and h is not None and len(h.supporting) >= 2:
+                responses.append(
+                    c.DefenseResponse(
+                        objection_id=o.id,
+                        stance="rebut",
+                        argument="Fixture rule: two supporting claims are cited.",
+                        cited_claim_refs=[x.ref for x in h.supporting[:2]],
+                    )
+                )
+            else:
+                responses.append(c.DefenseResponse(objection_id=o.id, stance="concede", argument="Fixture rule: the objection stands.", cited_claim_refs=[]))
+        return c.DefenseOutput(responses=responses, revisions=revisions)
 
     def _synthesis(self, p: c.SynthesisInput) -> c.SynthesisOutput:
         findings = [

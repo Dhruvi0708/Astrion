@@ -1,5 +1,6 @@
 """Shared helpers for intelligence-engine tests: a seeded workspace and a fault-injecting LLM."""
 
+import dataclasses
 import io
 import threading
 from collections.abc import Callable
@@ -57,6 +58,7 @@ class ScriptedLLM(FixtureLLM):
         self._lock = threading.Lock()
         self.barrier: threading.Barrier | None = None
         self.on_call: Callable[[str], None] | None = None
+        self.transforms: dict[str, Callable] = {}  # agent -> fn(output) -> output (simulate specific model answers)
 
     def generate(self, *, agent, **kw):  # noqa: ANN001, ANN003, ANN201
         with self._lock:
@@ -69,7 +71,10 @@ class ScriptedLLM(FixtureLLM):
                 self.on_call(agent)
             if fault:
                 fault()
-            return super().generate(agent=agent, **kw)
+            result = super().generate(agent=agent, **kw)
+            if agent in self.transforms:
+                result = dataclasses.replace(result, output=self.transforms[agent](result.output))
+            return result
         finally:
             with self._lock:
                 self.concurrent -= 1

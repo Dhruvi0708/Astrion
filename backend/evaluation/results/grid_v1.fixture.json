@@ -1,0 +1,204 @@
+{
+  "dataset": {
+    "name": "grid_v1",
+    "version": 1,
+    "sha256": "1302f1340f1fdfa19a2632e69be2234b1e339ba2705b5cbc6df6de7f6928cc99"
+  },
+  "provider": "fixture",
+  "model": "astrion-fixture-v1",
+  "is_real_model": false,
+  "label": "MOCKED LLM (deterministic fixture): measures the engine, not reasoning quality",
+  "settings": {
+    "max_iterations": 3,
+    "run_max_llm_calls": 40,
+    "research_initial_chars": 120000,
+    "max_debated_hypotheses": 3
+  },
+  "generated_at": "2026-11-15T10:40:57.712250+00:00",
+  "duration_s": 0.37,
+  "metrics": {
+    "evidence_coverage": {
+      "score": 1.0,
+      "covered": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6"
+      ],
+      "total": 6
+    },
+    "claim_support": {
+      "score": 1.0,
+      "claims": 8,
+      "verbatim_supported": 8
+    },
+    "entity_resolution": {
+      "found": 0.6667,
+      "fragmentation_rate": 0.0,
+      "exact_duplicates": 0,
+      "clusters": [
+        {
+          "gold": "solar",
+          "entities": [
+            "Solar PV"
+          ],
+          "found": true,
+          "fragmented": false
+        },
+        {
+          "gold": "curtailment",
+          "entities": [
+            "curtailment"
+          ],
+          "found": true,
+          "fragmented": false
+        },
+        {
+          "gold": "battery storage",
+          "entities": [],
+          "found": false,
+          "fragmented": false
+        }
+      ]
+    },
+    "contradiction_detection": {
+      "recall": 0.0,
+      "precision_genuine": 0.0,
+      "resolution_accuracy": null,
+      "detected": 6,
+      "genuine": 4
+    },
+    "temporal": {
+      "supersession_recall": 1.0,
+      "dated_claims": 6
+    },
+    "hypothesis_quality": {
+      "causation_backed_by_causal_claims": null,
+      "count": 6,
+      "with_support": 1.0,
+      "with_falsification": 1.0,
+      "reasoning_types": {
+        "correlation": 6
+      },
+      "downgraded_by_guard": 2,
+      "consensus": {
+        "contested": 6
+      },
+      "mean_confidence": 0.2812
+    },
+    "graph_consistency": {
+      "relationships_with_claims": null,
+      "orphan_entities": 0,
+      "claims_with_evidence": 1.0,
+      "consistent": true
+    },
+    "agent_reliability": {
+      "challenger": {
+        "executions": 2,
+        "succeeded": 2,
+        "retries": 0,
+        "validation_notes": 0,
+        "success_rate": 1.0
+      },
+      "contradiction": {
+        "executions": 2,
+        "succeeded": 2,
+        "retries": 0,
+        "validation_notes": 0,
+        "success_rate": 1.0
+      },
+      "hypothesis": {
+        "executions": 4,
+        "succeeded": 4,
+        "retries": 0,
+        "validation_notes": 0,
+        "success_rate": 1.0
+      },
+      "knowledge": {
+        "executions": 2,
+        "succeeded": 2,
+        "retries": 0,
+        "validation_notes": 0,
+        "success_rate": 1.0
+      },
+      "orchestrator": {
+        "executions": 2,
+        "succeeded": 2,
+        "retries": 0,
+        "validation_notes": 0,
+        "success_rate": 1.0
+      },
+      "research": {
+        "executions": 6,
+        "succeeded": 6,
+        "retries": 0,
+        "validation_notes": 0,
+        "success_rate": 1.0
+      },
+      "synthesis": {
+        "executions": 2,
+        "succeeded": 2,
+        "retries": 0,
+        "validation_notes": 0,
+        "success_rate": 1.0
+      },
+      "verification": {
+        "executions": 2,
+        "succeeded": 2,
+        "retries": 0,
+        "validation_notes": 0,
+        "success_rate": 1.0
+      }
+    },
+    "investigation_quality": [
+      {
+        "title": "Why curtailment rises",
+        "status": "completed",
+        "answer_status": "partially_answered",
+        "findings": 5,
+        "cited_findings": 1.0,
+        "unresolved_questions": 1,
+        "iterations": 1,
+        "stop_reason": "No unread passage addresses Q2; more evidence needs new documents.",
+        "usage": {
+          "llm_calls": 10,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        "recommendations": 15
+      },
+      {
+        "title": "Storage and curtailment",
+        "status": "completed",
+        "answer_status": "partially_answered",
+        "findings": 5,
+        "cited_findings": 1.0,
+        "unresolved_questions": 1,
+        "iterations": 1,
+        "stop_reason": "No unread passage addresses Q2; more evidence needs new documents.",
+        "usage": {
+          "llm_calls": 10,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        "recommendations": 15
+      }
+    ]
+  },
+  "investigations": [
+    {
+      "title": "Why curtailment rises",
+      "status": "completed",
+      "error": null
+    },
+    {
+      "title": "Storage and curtailment",
+      "status": "completed",
+      "error": null
+    }
+  ]
+}

@@ -56,6 +56,17 @@ test('create, run and inspect an investigation; other users cannot open it', asy
   await expect(page.getByTestId('knowledge-graph').locator('canvas')).toBeVisible();
   await expect(page.getByText('PostgreSQL registry').or(page.getByText('Neo4j', { exact: true }))).toBeVisible();
 
+  // Phase 3: the run explains how it planned itself, and the workspace shows cross-investigation insights.
+  await page.getByRole('radio', { name: 'Planning & next steps' }).click();
+  await expect(page.getByTestId('stop-reason')).toContainText('Stopped because');
+  await expect(page.getByTestId('next-step').first()).toBeVisible();
+  await page.getByRole('radio', { name: 'Sources' }).click();
+  await expect(page.getByTestId('sources')).toContainText('These scores describe sources, not claims');
+  const workbench = page.url();
+  await page.goto('/app/discovery');
+  await expect(page.getByTestId('insights')).toBeVisible();
+  await page.goto(workbench);
+
   // Workspace isolation: another user gets "not found" for the same URL.
   const url = page.url();
   const other = await browser.newContext();

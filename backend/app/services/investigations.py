@@ -40,16 +40,26 @@ ACTIVE = {InvestigationStatus.queued, InvestigationStatus.running, Investigation
 
 STAGES: list[tuple[str, AgentRole]] = [
     ("ingest", AgentRole.system),
+    ("memory", AgentRole.system),
     ("orchestrator", AgentRole.orchestrator),
     ("research", AgentRole.research),
     ("knowledge", AgentRole.knowledge),
     ("graph_sync:knowledge", AgentRole.system),
+    ("assess", AgentRole.system),
+    ("planner", AgentRole.planner),
+    ("temporal", AgentRole.system),
+    ("sources", AgentRole.system),
     ("hypothesis", AgentRole.hypothesis),
     ("contradiction", AgentRole.contradiction),
+    ("debate", AgentRole.challenger),
     ("verification", AgentRole.verification),
     ("synthesis", AgentRole.synthesis),
     ("graph_sync:final", AgentRole.system),
+    ("next_steps", AgentRole.system),
 ]
+# Stages that only run when needed (the planner when there is a real choice; the debate when there are
+# hypotheses and budget). They are listed only when they actually ran, never shown as "pending".
+OPTIONAL_STAGES = {"planner", "debate"}
 
 
 class ProviderUnavailable(AppError):
@@ -116,9 +126,9 @@ def progress(db: Session, inv: Investigation) -> list[StageProgress]:
             latest[key] = r
     out = []
     for stage, role in STAGES:
-        group = [r for k, r in latest.items() if k == stage or k.startswith(f"{stage}:") and not stage.startswith("graph_sync")]
-        if stage == "knowledge":
-            group = [r for k, r in latest.items() if k in ("knowledge", "knowledge:resolve")]
+        group = [r for k, r in latest.items() if k == stage or k.startswith(f"{stage}:")]
+        if not group and stage in OPTIONAL_STAGES:
+            continue
         statuses = [r.status for r in group]
         if not group:
             status = "pending"
@@ -247,12 +257,18 @@ def _claim_payload(db: Session, claim: Claim) -> dict:
         ],
         "investigation_id": str(claim.investigation_id) if claim.investigation_id else None,
         "created_at": claim.created_at.isoformat(),
+        "valid_from_year": claim.valid_from_year,
+        "valid_to_year": claim.valid_to_year,
+        "superseded_by_id": str(claim.superseded_by_id) if claim.superseded_by_id else None,
     }
 
 
 def claims(db: Session, user: User, investigation_id: uuid.UUID) -> list[dict]:
     inv = get_owned_investigation(db, user, investigation_id)
-    return [_claim_payload(db, cl) for cl in db.scalars(select(Claim).where(Claim.id.in_(investigation_claim_ids(inv.id))).order_by(Claim.created_at))]
+    return [
+        _claim_payload(db, cl)
+        for cl in db.scalars(select(Claim).where(Claim.id.in_(investigation_claim_ids(inv.id))).order_by(Claim.created_at, Claim.normalized_statement))
+    ]
 
 
 def hypotheses(db: Session, user: User, investigation_id: uuid.UUID) -> list[dict]:
@@ -284,6 +300,12 @@ def hypotheses(db: Session, user: User, investigation_id: uuid.UUID) -> list[dic
                 "opposing_claim_ids": sorted(opp),
                 "verification": _verification_payload(verdict) if verdict else None,
                 "generated_by_execution_id": str(h.generated_by_execution_id) if h.generated_by_execution_id else None,
+                "reasoning_type": h.reasoning_type,
+                "assumptions": h.assumptions or [],
+                "falsification_conditions": h.falsification_conditions or [],
+                "consensus": h.consensus,
+                "debate": h.debate or {},
+                "revises_hypothesis_id": str(h.revises_hypothesis_id) if h.revises_hypothesis_id else None,
             }
         )
     return out
@@ -317,6 +339,8 @@ def contradictions(db: Session, user: User, investigation_id: uuid.UUID) -> list
                 "explanation": x.explanation,
                 "claim_a": _claim_payload(db, db.get(Claim, x.claim_a_id)),
                 "claim_b": _claim_payload(db, db.get(Claim, x.claim_b_id)),
+                "resolution_kind": x.resolution_kind,
+                "resolution": x.resolution,
                 "verification": _verification_payload(verdict) if verdict else None,
             }
         )
@@ -378,4 +402,109 @@ def compare(db: Session, user: User, workspace_id: uuid.UUID, ids: list[uuid.UUI
         )
     sets = [entities_by_inv[str(i.id)] for i in invs]
     shared = set.intersection(*sets) if sets else set()
-    return {"investigations": out_invs, "shared_entities": [{"id": e, "name": names[e]} for e in sorted(shared, key=lambda e: names[e])]}
+    return {
+        "investigations": out_invs,
+        "shared_entities": [{"id": e, "name": names[e]} for e in sorted(shared, key=lambda e: names[e])],
+        "evolution": compare_diff(db, user, workspace_id, ids),
+    }
+
+
+# --------------------------------------------------------------------------- Phase 3
+
+
+def runs(db: Session, user: User, investigation_id: uuid.UUID) -> list[dict]:
+    from app.models import InvestigationRun
+
+    inv = get_owned_investigation(db, user, investigation_id)
+    return [
+        {
+            "run_number": r.run_number,
+            "status": r.status,
+            "provider": r.provider,
+            "model": r.model,
+            "budget": r.budget,
+            "usage": r.usage,
+            "iterations": r.iterations,
+            "stop_reason": r.stop_reason,
+            "plan_history": r.plan_history,
+            "recommendations": r.recommendations,
+            "started_at": r.started_at.isoformat() if r.started_at else None,
+            "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+        }
+        for r in db.scalars(select(InvestigationRun).where(InvestigationRun.investigation_id == inv.id).order_by(InvestigationRun.run_number.desc()))
+    ]
+
+
+def assessments(db: Session, user: User, investigation_id: uuid.UUID) -> list[dict]:
+    """Exploration decisions (coverage, scored candidates, stop reason) for the latest run."""
+    inv = get_owned_investigation(db, user, investigation_id)
+    rows = db.scalars(
+        select(AgentExecution)
+        .where(AgentExecution.investigation_id == inv.id, AgentExecution.step_key.like(f"r{inv.run_count}:assess:%"))
+        .order_by(AgentExecution.created_at)
+    )
+    return [r.output for r in rows if r.output]
+
+
+def messages(db: Session, user: User, investigation_id: uuid.UUID) -> list[dict]:
+    from app.models import AgentMessage
+
+    inv = get_owned_investigation(db, user, investigation_id)
+    return [
+        {
+            "id": str(m.id),
+            "run_number": m.run_number,
+            "sender_role": m.sender_role,
+            "recipient_role": m.recipient_role,
+            "kind": m.kind,
+            "subject_type": m.subject_type,
+            "subject_id": str(m.subject_id),
+            "content": m.content,
+            "cited_claim_ids": m.cited_claim_ids,
+            "execution_id": str(m.execution_id) if m.execution_id else None,
+            "created_at": m.created_at.isoformat(),
+        }
+        for m in db.scalars(select(AgentMessage).where(AgentMessage.investigation_id == inv.id).order_by(AgentMessage.created_at, AgentMessage.id))
+    ]
+
+
+def source_assessments(db: Session, user: User, investigation_id: uuid.UUID) -> list[dict]:
+    from app.models import SourceAssessment
+
+    inv = get_owned_investigation(db, user, investigation_id)
+    out = []
+    for a in db.scalars(
+        select(SourceAssessment)
+        .where(SourceAssessment.investigation_id == inv.id, SourceAssessment.run_number == inv.run_count)
+        .order_by(SourceAssessment.relevance.desc())
+    ):
+        src = db.get(Source, a.source_id)
+        out.append(
+            {
+                "source": {
+                    "id": str(src.id),
+                    "title": src.title,
+                    "source_type": src.source_type.value,
+                    "uri": src.uri,
+                    "published_on": src.published_on.isoformat() if src.published_on else None,
+                },
+                "independence_group": a.independence_group,
+                "relevance": a.relevance,
+                "credibility": a.credibility,
+                "recency": a.recency,
+                "independence": a.independence,
+                "corroboration": a.corroboration,
+                "details": a.details,
+            }
+        )
+    return out
+
+
+def compare_diff(db: Session, user: User, workspace_id: uuid.UUID, ids: list[uuid.UUID]) -> list[dict]:
+    """Pairwise evolution between consecutive investigations (oldest first)."""
+    from app.intelligence.insights import chronological, diff_investigations
+
+    invs = chronological(get_owned_investigation(db, user, i) for i in ids)
+    if any(i.workspace_id != workspace_id for i in invs):
+        raise NotFoundError("Investigations must belong to this workspace.")
+    return [diff_investigations(db, a, b) for a, b in zip(invs, invs[1:], strict=False)]

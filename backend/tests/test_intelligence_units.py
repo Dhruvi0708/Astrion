@@ -50,6 +50,8 @@ def test_every_role_has_an_agent():
         AgentRole.contradiction,
         AgentRole.verification,
         AgentRole.synthesis,
+        AgentRole.planner,
+        AgentRole.challenger,
     }
     assert set(AGENTS) == expected
     assert all(a.system and a.output_type for a in AGENTS.values())
@@ -159,7 +161,7 @@ def test_confidence_rewards_diverse_support_and_penalises_opposition():
     assert hypothesis_confidence(one, [], "contradicted")["score"] < hypothesis_confidence(one, [], "supported")["score"]
     assert hypothesis_confidence([ClaimWeight(False, "s1")], [])["score"] < base  # inferred counts half
     r = hypothesis_confidence([], [])
-    assert r["score"] == 0 and r["band"] == "low" and r["method"] == "astrion-evidence-v1"
+    assert r["score"] == 0 and r["band"] == "low" and r["method"] == "astrion-evidence-v2"
 
 
 # --------------------------------------------------------------------------- text

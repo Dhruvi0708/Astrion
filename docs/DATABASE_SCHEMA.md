@@ -97,6 +97,16 @@ See concepts above. `generated_by_execution_id → agent_executions` ties AI hyp
 ### graph_snapshots
 `workspace_id`, `created_by_id`, `label`, `node_count`, `relationship_count`, `checksum`, `storage_uri`, `captured_at`, `details` JSONB.
 
+### Phase 3 *(migration 0004)*
+- `investigation_runs`: one row per run, unique `(investigation, run_number)`. Holds status, provider, model, `budget`, `usage`, `iterations`, `stop_reason`, `plan_history`, `recommendations`, start and finish times.
+- `agent_messages`: structured agent-to-agent messages. Holds the run, the executing step, sender and recipient roles, `kind`, subject (hypothesis), `content`, `cited_claim_ids`.
+- `source_assessments`: unique `(investigation, run, source)`. Holds `independence_group`, `relevance`, `credibility` (a type prior), `recency`, `independence`, `corroboration`, `details`.
+- `claims` + `valid_from_year`, `valid_to_year`, `superseded_by_id → claims` (SET NULL).
+- `investigation_claims` + `sub_question_ids`, `iteration`.
+- `hypotheses` + `reasoning_type`, `assumptions`, `falsification_conditions`, `consensus`, `debate`, `revises_hypothesis_id → hypotheses` (SET NULL).
+- `contradictions` + `resolution_kind` (temporal | verification), `resolution`.
+- The `agent_executions.agent_role` CHECK constraint adds `planner` and `challenger`.
+
 ## Graph model (Neo4j)
 
 Defined in `backend/app/graph/model.py`.

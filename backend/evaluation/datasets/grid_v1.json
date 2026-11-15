@@ -1,0 +1,80 @@
+{
+  "name": "grid_v1",
+  "version": 1,
+  "description": "Electricity grid and solar power: entity aliases (solar PV / photovoltaic), a revised capacity figure, conflicting claims about curtailment in different years, and a stated causal mechanism.",
+  "padding": "Appendix tables list substation identifiers, metering intervals and the data cleaning steps applied before analysis. ",
+  "padding_repeats": 14,
+  "sources": [
+    {
+      "title": "Grid Operator Annual Report 2020",
+      "source_type": "report",
+      "authors": ["Grid Operations Office"],
+      "uri": "https://grid.example.org/annual-2020",
+      "published_on": "2020-11-30",
+      "documents": [
+        {
+          "title": "grid-2020.txt",
+          "paragraphs": [
+            "Grid Report 2020. Solar PV capacity reached 4 gigawatts on the regional grid in 2020.",
+            "Curtailment of solar output stayed below 2 percent of generation in 2020 because demand absorbed midday supply.",
+            "Battery storage remains limited on the regional grid in 2020."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Grid Operator Annual Report 2024",
+      "source_type": "report",
+      "authors": ["Grid Operations Office"],
+      "uri": "https://grid.example.org/annual-2024",
+      "published_on": "2024-11-30",
+      "documents": [
+        {
+          "title": "grid-2024.txt",
+          "paragraphs": [
+            "Grid Report 2024. Solar PV capacity reached 9 gigawatts on the regional grid in 2024.",
+            "Curtailment of solar output rose to 7 percent of generation in 2024 during spring afternoons.",
+            "Transmission congestion causes curtailment when midday solar output exceeds export capacity in 2024."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Energy Systems Journal",
+      "source_type": "paper",
+      "authors": ["L. Novak", "P. Singh"],
+      "uri": "https://energy-journal.example.net/curtailment",
+      "published_on": "2023-05-10",
+      "documents": [
+        {
+          "title": "journal-2023.txt",
+          "paragraphs": [
+            "Energy Systems Journal 2023. Photovoltaic growth correlates with midday price drops across the regional grid.",
+            "Battery storage reduces curtailment by shifting midday photovoltaic output into the evening peak."
+          ]
+        }
+      ]
+    }
+  ],
+  "investigations": [
+    { "title": "Why curtailment rises", "question": "Why is solar curtailment increasing on the regional grid?" },
+    { "title": "Storage and curtailment", "question": "Can battery storage reduce solar curtailment on the grid?" }
+  ],
+  "gold": {
+    "facts": [
+      { "id": "F1", "text": "Solar PV capacity reached 4 gigawatts on the regional grid in 2020." },
+      { "id": "F2", "text": "Solar PV capacity reached 9 gigawatts on the regional grid in 2024." },
+      { "id": "F3", "text": "Curtailment of solar output stayed below 2 percent of generation in 2020 because demand absorbed midday supply." },
+      { "id": "F4", "text": "Curtailment of solar output rose to 7 percent of generation in 2024 during spring afternoons." },
+      { "id": "F5", "text": "Transmission congestion causes curtailment when midday solar output exceeds export capacity in 2024." },
+      { "id": "F6", "text": "Battery storage reduces curtailment by shifting midday photovoltaic output into the evening peak." }
+    ],
+    "entities": [
+      { "name": "solar", "aliases": ["solar pv", "photovoltaic", "solar"] },
+      { "name": "curtailment", "aliases": ["curtailment"] },
+      { "name": "battery storage", "aliases": ["battery storage", "battery"] }
+    ],
+    "contradictions": [{ "a": "below 2 percent", "b": "7 percent", "resolution": "temporal" }],
+    "superseded": [{ "old": "4 gigawatts", "new": "9 gigawatts" }]
+  }
+}

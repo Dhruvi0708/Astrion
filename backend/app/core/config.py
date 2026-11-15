@@ -71,6 +71,16 @@ class Settings(BaseSettings):
     research_chars_per_call: int = Field(default=24000, ge=2000, alias="ASTRION_RESEARCH_CHARS_PER_CALL")
     max_claims_for_reasoning: int = Field(default=80, ge=5, alias="ASTRION_MAX_CLAIMS_FOR_REASONING")
     max_concurrent_investigations: int = Field(default=2, ge=1, alias="ASTRION_MAX_CONCURRENT_INVESTIGATIONS")
+    # Phase 3: adaptive investigation limits and per-run budgets (hard stops, enforced in code).
+    max_iterations: int = Field(default=3, ge=1, le=6, alias="ASTRION_MAX_ITERATIONS")
+    research_initial_chars: int = Field(default=120_000, ge=500, alias="ASTRION_RESEARCH_INITIAL_CHARS")
+    research_iteration_chars: int = Field(default=24_000, ge=500, alias="ASTRION_RESEARCH_ITERATION_CHARS")
+    min_claims_per_subquestion: int = Field(default=2, ge=1, alias="ASTRION_MIN_CLAIMS_PER_SUBQUESTION")
+    run_max_llm_calls: int = Field(default=40, ge=6, alias="ASTRION_RUN_MAX_LLM_CALLS")
+    run_max_tokens: int = Field(default=2_000_000, ge=10_000, alias="ASTRION_RUN_MAX_TOKENS")
+    run_max_cost_usd: float = Field(default=20.0, gt=0, alias="ASTRION_RUN_MAX_COST_USD")
+    max_debated_hypotheses: int = Field(default=3, ge=0, le=10, alias="ASTRION_MAX_DEBATED_HYPOTHESES")
+    memory_claims: int = Field(default=20, ge=0, le=100, alias="ASTRION_MEMORY_CLAIMS")
     embedding_model: str = Field(default="voyage-3.5", alias="ASTRION_EMBEDDING_MODEL")
 
     @field_validator("cors_origins", "llm_fallback_models", mode="before")

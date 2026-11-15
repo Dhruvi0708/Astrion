@@ -13,9 +13,13 @@
 | Intelligence units | pytest | `backend/tests/test_intelligence_units.py` | Strict JSON schemas for every contract, verbatim-quote and orphan filtering, verification gap filling, uncited-finding removal, confidence formula, text extraction/chunking, fixture refused in production, Claude structured-output request/usage/refusal/truncation/schema errors (fake SDK client) |
 | Intelligence pipeline | pytest + TestClient, inline runner | `backend/tests/test_intelligence_pipeline.py` | Full run via API with the fixture provider: step order and dependencies, parallel research (barrier), retry with backoff, exhausted retries → failed, non-retryable failure → resume reusing succeeded steps, timeout, cancel, restart recovery, Neo4j failure → failed run, re-run dedup and claim linking, verbatim evidence and report citation chains, no-text documents → honest insufficient evidence, 503 without a provider, lifecycle 409s, cross-user 404 on every route |
 | Intelligence + Neo4j | pytest, **real server** | `backend/tests/test_intelligence_neo4j.py` | Investigation synced to Neo4j: consistency report, evidenced claims, idempotent re-sync, workspace isolation |
+| Phase 3 engine (**mocked LLM**) | pytest + TestClient | `backend/tests/test_phase3_engine.py` | Adaptive iterations reading exactly the chosen passages; stop when everything is read; budget stops exploration; budget exhaustion fails and resume completes; memory recall into planning and reasoning; hypothesis revision chains; comparison evolution; insights and memory isolation; debate messages and evidence-based consensus; causation guard (simulated over-claiming model); temporal supersession, resolution and timeline; source independence, priors and recency kept out of confidence; ranked, explained next steps; owner-scoped Phase 3 routes |
+| Phase 3 units | pytest | `backend/tests/test_phase3_units.py` | BM25, period parsing, temporal resolution, years are not figures, candidate scoring and explanations, sufficiency, confidence v2, planner, challenger and defense validation, insights (unnoticed connection, corroboration, patterns, gaps) |
+| Evaluation | pytest | `backend/tests/test_evaluation.py` | Benchmarks are reproducible and labelled as mocked; gold facts exist in the corpus; real-model runs are refused without a key |
 | Data model | pytest | `backend/tests/test_models.py` | Provenance chain, CHECK constraints, cascades |
 | Migrations | Alembic | test fixture (PostgreSQL mode) + CI | `downgrade base` → `upgrade head` every PostgreSQL run; `alembic check` for drift |
 | Frontend units | Vitest | `src/lib/api/client.test.ts`, `src/data/sample/*.test.ts`, `src/features/auth/auth.test.ts` | Error envelopes, outage detection, bearer + single refresh-and-retry, session-expiry callback, CSRF header on auth calls, open-redirect protection, sample-data integrity |
+| Phase 3 UI | Vitest + Testing Library | `src/features/workbench/phase3.test.tsx` | Planning tab (stop reason, chosen action, explained candidates, next steps); reasoning type, consensus, falsification, revision; debate thread flags unevidenced rebuttals; temporal resolution; outdated claims; sources table says scores describe sources; Discovery shows real insights with the sample lab one click away |
 | Workbench | Vitest + Testing Library | `src/features/workbench/workbench.test.tsx` | 3D layout (deterministic, claims on the back plane, dangling edges ignored); fixture labelled "not AI"; stage states from the server; validation notes visible; cited report; failed run → resume, no report; graph data source + no-WebGL fallback; no fabricated activity before a run; polling only while active |
 | Frontend routes | Vitest + Testing Library | `src/app/routes.test.tsx` | Every environment renders when signed in; anonymous → sign-in; expired-session message; profile shows user; Sources badge says "Backend offline" when the API is down |
 | Browser | Playwright (Chromium) | `frontend/e2e/*.spec.ts` | **Investigation end to end** (upload → create → start → completed → claims, cited report, 3D graph canvas; another user gets not-found; backend runs `ASTRION_LLM_PROVIDER=fixture`), landing, sidebar navigation, UI registration/sign-out/sign-in with return path, wrong password, protected routes, session restore on reload and loss on cookie clear, workspace creation, source registration with validation, upload + download, disallowed upload, **cross-user rejection (two browser contexts)**, backend-offline handling, mobile drawer + no horizontal scroll |
@@ -49,7 +53,7 @@ The backend-offline browser tests simulate the outage by aborting `/api/v1/*` re
 | `backend` | Services: PostgreSQL 16, Neo4j 5.26 Community. Ruff lint + format check, Alembic upgrade → downgrade → upgrade → check, pytest on SQLite, then pytest on PostgreSQL + Neo4j with **no skips allowed** |
 | `e2e` | Services: PostgreSQL 16. Migrations, Playwright Chromium; HTML report uploaded on failure |
 
-The Phase 1.5 commit was pushed, but its CI run has not been reviewed here. The Phase 2 changes are uncommitted and have not run in CI. Vitest is scoped to `src/**/*.test.*`; before Phase 2 it also collected the Playwright specs, so `npm test` (and the CI frontend job) failed.
+Until the fix after Phase 2, **CI never ran**. GitHub rejected the workflow file because the e2e job's job-level `env` used `${{ runner.temp }}`, and the `runner` context is only allowed at step level. Both pushed runs (`5e834b0`, `af67524`) failed with zero jobs. The variable now lives in the Playwright step's `env`. Vitest is scoped to `src/**/*.test.*`; before Phase 2 it also collected the Playwright specs, so `npm test` (and the CI frontend job) failed.
 
 ## Phase 1.5 results (2026-11-12, local Windows 11)
 
@@ -80,6 +84,30 @@ Bugs these suites caught during Phase 1.5 and that were fixed: Neo4j driver reje
 | Playwright (desktop + mobile Chromium, real PostgreSQL + Neo4j, fixture provider) | 15 passed |
 
 Bugs caught while building Phase 2: re-running an investigation over the same documents left it with no claims, so reasoning was silently skipped (fixed with `investigation_claims`); `strict_json_schema` stripped a *property* named `title`, which would have sent Claude an invalid schema; skipped steps were counted as succeeded in progress; the fixture glued headings onto sentences; Vitest collected Playwright specs.
+
+## Phase 3 results (2026-11-15, local Windows 11)
+
+Every intelligence test uses the deterministic fixture provider: a **mocked LLM**. No test calls a real model.
+
+| Suite | Result |
+|---|---|
+| Ruff lint / format | pass / pass |
+| Backend on SQLite | 176 passed, 17 skipped (Neo4j integration tests: no server in that mode) |
+| Backend on PostgreSQL 18.6 + Neo4j 5.26.0 | **193 passed, 0 skipped** |
+| Alembic `0003`→`0004`→`0003`→`0004`, `alembic check` | pass, no drift |
+| ESLint / Prettier / `tsc` | pass / pass / pass |
+| Vitest | 53 passed |
+| `vite build` | success |
+| Playwright (desktop + mobile, real PostgreSQL + Neo4j, fixture provider) | 15 passed |
+| Benchmarks (`python -m app.evaluation`, fixture) | see [EVALUATION.md](EVALUATION.md) |
+| GitHub Actions on `4c6b315` | frontend, backend, Playwright: all green (the first CI run that executed any job) |
+
+Bugs caught while building Phase 3:
+- The benchmark found orphan entities created for claims that already existed with a different subject.
+- A year in a restated sentence was read as a changed figure, so corroboration looked like an update.
+- Claim order depended on random UUIDs when timestamps tied, which made agent inputs and evaluations non-reproducible.
+- A naive/aware datetime comparison when ordering investigations.
+- An absolute BM25 cut-off missed relevant memory in small corpora.
 
 ## Gaps
 - **No real Claude run.** No `ANTHROPIC_API_KEY` was available, so agent quality and the live structured-output request are unverified; only the request shape is tested.

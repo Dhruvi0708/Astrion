@@ -3,7 +3,7 @@ import { Database, Quote, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/States';
 import { Segmented } from '@/components/ui/Segmented';
-import { useEntityDetail, useWorkspaceGraph } from '@/lib/api/hooks';
+import { useEntityDetail, useEntityTimeline, useWorkspaceGraph } from '@/lib/api/hooks';
 import type { WorkspaceGraphNode } from '@/lib/api/types';
 import { hasWebGL } from '@/lib/webgl';
 import { ENTITY_COLOR } from './layout3d';
@@ -35,6 +35,32 @@ function GraphList({ nodes, onSelect }: { nodes: WorkspaceGraphNode[]; onSelect:
           </li>
         ))}
     </ul>
+  );
+}
+
+function Timeline({ workspaceId, entityId }: { workspaceId: string; entityId: string }) {
+  const tl = useEntityTimeline(workspaceId, entityId);
+  const events = (tl.data ?? []).filter((e) => e.type === 'claim' || e.details?.kind === 'claim_superseded');
+  if (tl.isPending || !events.length) return null;
+  return (
+    <div data-testid="timeline">
+      <p className="eyebrow mb-1.5">Timeline</p>
+      <ol className="space-y-1.5 border-l border-line pl-3">
+        {events.map((e, i) => (
+          <li key={i} className="text-xs">
+            <span className="font-mono text-2xs text-cyan">{e.year ?? 'undated'}</span>{' '}
+            {e.type === 'claim' ? (
+              <span className={e.superseded_by_id ? 'text-ink-faint line-through' : 'text-ink-muted'}>{e.statement}</span>
+            ) : (
+              <span className="text-caution">
+                superseded: “{String(e.details?.old ?? '')}” → “{String(e.details?.new ?? '')}”
+              </span>
+            )}
+            {e.year_basis === 'source published' && <span className="text-2xs text-ink-faint"> (as of source date)</span>}
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -85,6 +111,7 @@ function Inspector({ workspaceId, node }: { workspaceId: string; node: Workspace
           </ul>
         </div>
       )}
+      <Timeline workspaceId={workspaceId} entityId={d.id} />
       <div>
         <p className="eyebrow mb-1.5">Claims and evidence</p>
         <ul className="space-y-2">

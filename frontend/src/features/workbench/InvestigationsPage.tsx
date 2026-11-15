@@ -122,6 +122,48 @@ function Comparison({ workspaceId, ids }: { workspaceId: string; ids: string[] }
           </div>
         ))}
       </div>
+      {(cmp.data.evolution ?? []).map((e) => (
+        <div key={`${e.from.id}-${e.to.id}`} className="rounded-lg border border-line bg-surface/40 p-3" data-testid="evolution-diff">
+          <p className="text-sm text-ink">
+            {e.from.title} → {e.to.title}
+          </p>
+          <div className="mt-2 grid gap-3 text-xs text-ink-muted md:grid-cols-2 xl:grid-cols-3">
+            <div>
+              <p className="eyebrow mb-1">New entities</p>
+              {e.new_entities.join(', ') || 'none'}
+            </div>
+            <div>
+              <p className="eyebrow mb-1">New relationships</p>
+              {e.new_relationships.map((r) => `${r.source} ${r.type.toLowerCase()} ${r.target}`).join('; ') || 'none'}
+            </div>
+            <div>
+              <p className="eyebrow mb-1">Changed hypotheses</p>
+              {e.changed_hypotheses.length
+                ? e.changed_hypotheses.map((h, i) => (
+                    <p key={i}>
+                      {h.after.statement.slice(0, 90)} · {h.before.status} → {h.after.status}
+                      {h.confidence_change != null && ` (${h.confidence_change >= 0 ? '+' : ''}${h.confidence_change.toFixed(2)})`}
+                    </p>
+                  ))
+                : 'none'}
+            </div>
+            <div>
+              <p className="eyebrow mb-1">Resolved contradictions</p>
+              {e.resolved_contradictions.map((x) => `“${x.a.slice(0, 60)}” (${x.how.slice(0, 60)})`).join('; ') || 'none'}
+            </div>
+            <div>
+              <p className="eyebrow mb-1">New conflicts</p>
+              {e.new_conflicts.map((x) => `“${x.a.slice(0, 50)}” vs “${x.b.slice(0, 50)}”`).join('; ') || 'none'}
+            </div>
+            <div>
+              <p className="eyebrow mb-1">Graph changes</p>
+              {Object.entries(e.knowledge_evolution.to)
+                .map(([k, n]) => `${k.replace(/_/g, ' ')} ${n}`)
+                .join(', ') || 'none'}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

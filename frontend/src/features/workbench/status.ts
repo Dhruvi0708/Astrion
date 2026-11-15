@@ -31,20 +31,29 @@ export const ROLE: Record<AgentRole, { label: string; duty: string }> = {
   contradiction: { label: 'Contradiction', duty: 'Finds conflicting claims and classifies the conflict' },
   verification: { label: 'Verification', duty: 'Checks hypotheses and conflicts against their evidence' },
   synthesis: { label: 'Synthesis', duty: 'Writes the cited report and its open questions' },
+  planner: { label: 'Planner', duty: 'Re-plans between research iterations: judges sufficiency and picks the next evidence to read' },
+  challenger: { label: 'Challenger', duty: 'Argues against each hypothesis: alternatives, confounders, weak or counter-evidence' },
 };
 
 /** Stage keys returned in `progress`, in pipeline order, with what the UI calls them. */
 export const STAGE_LABEL: Record<string, string> = {
   ingest: 'Ingest',
+  memory: 'Memory',
   orchestrator: 'Plan',
   research: 'Research',
   knowledge: 'Knowledge',
   'graph_sync:knowledge': 'Graph sync',
+  assess: 'Assess',
+  planner: 'Re-plan',
+  temporal: 'Temporal',
+  sources: 'Sources',
   hypothesis: 'Hypotheses',
   contradiction: 'Contradictions',
+  debate: 'Debate',
   verification: 'Verification',
   synthesis: 'Synthesis',
   'graph_sync:final': 'Final sync',
+  next_steps: 'Next steps',
 };
 
 export const VERDICT: Record<Verdict, { label: string; tone: Tone }> = {
@@ -79,3 +88,18 @@ export function formatCost(usd: number | null | undefined): string {
   if (usd === 0) return '$0.00';
   return usd < 0.01 ? `<$0.01` : `$${usd.toFixed(2)}`;
 }
+
+export const REASONING: Record<string, { label: string; tone: Tone; meaning: string }> = {
+  causation: { label: 'Causation', tone: 'cyan', meaning: 'Cited claims assert a causal mechanism.' },
+  correlation: { label: 'Correlation', tone: 'neutral', meaning: 'Things co-occur; no mechanism is established.' },
+  inference: { label: 'Inference', tone: 'unverified', meaning: 'Reasoning beyond what the claims state.' },
+  speculation: { label: 'Speculation', tone: 'unverified', meaning: 'Little or no direct evidence.' },
+};
+
+export const CONSENSUS: Record<string, { label: string; tone: Tone; meaning: string }> = {
+  agreed: { label: 'Agreed', tone: 'verified', meaning: 'Verified as supported and every objection was answered with evidence.' },
+  contested: { label: 'Contested', tone: 'conflict', meaning: 'At least one objection stands unanswered by evidence.' },
+  rejected: { label: 'Rejected', tone: 'offline', meaning: 'The verifier found it unsupported or contradicted.' },
+  insufficient: { label: 'Insufficient', tone: 'unverified', meaning: 'Not enough evidence either way.' },
+  unchallenged: { label: 'Not debated', tone: 'neutral', meaning: 'Verified without a debate (budget or limit).' },
+};

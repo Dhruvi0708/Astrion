@@ -1,5 +1,12 @@
 import type {
   AgentExecution,
+  AgentMessageRecord,
+  Assessment,
+  Recommendation,
+  RunRecord,
+  SourceAssessmentRecord,
+  TimelineEvent,
+  WorkspaceInsights,
   ClaimRecord,
   ContradictionRecord,
   EntityDetail,
@@ -247,6 +254,15 @@ export const api = {
       query: { investigation_id: query.investigation_id, limit: query.limit, include_claims: query.include_claims ? 'true' : undefined },
     }),
   entityDetail: (workspaceId: string, entityId: string) => request<EntityDetail>(`/v1/workspaces/${workspaceId}/graph/entities/${entityId}`),
+
+  // Phase 3
+  listRuns: (id: string) => request<RunRecord[]>(`/v1/investigations/${id}/runs`),
+  nextSteps: (id: string) => request<Recommendation[]>(`/v1/investigations/${id}/next-steps`),
+  listAssessments: (id: string) => request<Assessment[]>(`/v1/investigations/${id}/assessments`),
+  listMessages: (id: string) => request<AgentMessageRecord[]>(`/v1/investigations/${id}/messages`),
+  listSourceAssessments: (id: string) => request<SourceAssessmentRecord[]>(`/v1/investigations/${id}/sources`),
+  workspaceInsights: (workspaceId: string) => request<WorkspaceInsights>(`/v1/workspaces/${workspaceId}/insights`),
+  entityTimeline: (workspaceId: string, entityId: string) => request<TimelineEvent[]>(`/v1/workspaces/${workspaceId}/graph/entities/${entityId}/timeline`),
 };
 
 export const API_BASE_URL = BASE_URL;

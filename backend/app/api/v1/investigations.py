@@ -164,3 +164,55 @@ def entity_detail(workspace_id: uuid.UUID, entity_id: uuid.UUID, user: CurrentUs
 @router.get("/workspaces/{workspace_id}/graph/consistency", responses=ERRORS, summary="Compare the PostgreSQL registry with Neo4j")
 def graph_consistency(workspace_id: uuid.UUID, user: CurrentUser, db: DbSession, graph: Graph) -> dict:
     return graph_service.consistency(db, user, workspace_id, graph)
+
+
+# --------------------------------------------------------------------------- Phase 3
+
+
+@router.get("/investigations/{investigation_id}/runs", responses=ERRORS, summary="Per-run budget, usage, iterations, stop reason, next steps")
+def list_runs(investigation_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[dict]:
+    return svc.runs(db, user, investigation_id)
+
+
+@router.get("/investigations/{investigation_id}/next-steps", responses=ERRORS, summary="Active-learning recommendations with explanations")
+def next_steps(investigation_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[dict]:
+    latest = svc.runs(db, user, investigation_id)
+    return latest[0]["recommendations"] if latest else []
+
+
+@router.get("/investigations/{investigation_id}/assessments", responses=ERRORS, summary="Exploration decisions of the latest run")
+def list_assessments(investigation_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[dict]:
+    return svc.assessments(db, user, investigation_id)
+
+
+@router.get("/investigations/{investigation_id}/messages", responses=ERRORS, summary="Agent-to-agent messages (debate and verdicts)")
+def list_messages(investigation_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[dict]:
+    return svc.messages(db, user, investigation_id)
+
+
+@router.get("/investigations/{investigation_id}/sources", responses=ERRORS, summary="Source assessments for the latest run")
+def list_source_assessments(investigation_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[dict]:
+    return svc.source_assessments(db, user, investigation_id)
+
+
+@router.get("/workspaces/{workspace_id}/insights", responses=ERRORS, summary="Cross-investigation connections, patterns, gaps, hypothesis evolution")
+def workspace_insights(workspace_id: uuid.UUID, user: CurrentUser, db: DbSession) -> dict:
+    from app.intelligence.insights import workspace_insights as compute
+    from app.services.workspaces import get_owned_workspace
+
+    get_owned_workspace(db, user, workspace_id)
+    return compute(db, workspace_id)
+
+
+@router.get("/workspaces/{workspace_id}/graph/entities/{entity_id}/timeline", responses=ERRORS, summary="Claims and changes about an entity over time")
+def entity_timeline(workspace_id: uuid.UUID, entity_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[dict]:
+    from app.core.errors import NotFoundError
+    from app.intelligence.temporal import entity_timeline as timeline
+    from app.models import GraphEntity
+    from app.services.workspaces import get_owned_workspace
+
+    get_owned_workspace(db, user, workspace_id)
+    ent = db.get(GraphEntity, entity_id)
+    if ent is None or ent.workspace_id != workspace_id:
+        raise NotFoundError(f"Entity {entity_id} was not found.")
+    return timeline(db, entity_id)

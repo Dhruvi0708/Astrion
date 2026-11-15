@@ -64,8 +64,9 @@ def test_full_pipeline_completes_with_traceable_steps(auth_client, llm, seeded):
     first = {s: min(i for i, k in enumerate(keys) if k.split(":", 1)[1].startswith(s)) for s in STAGE_ORDER}
     assert [s for s, _ in sorted(first.items(), key=lambda kv: kv[1])] == STAGE_ORDER
     by_key = {e["step_key"]: e for e in execs}
-    assert by_key["r1:orchestrator"]["depends_on"] == ["r1:ingest"]
-    assert by_key["r1:orchestrator"]["parent_execution_id"] == by_key["r1:ingest"]["id"]
+    assert by_key["r1:memory"]["depends_on"] == ["r1:ingest"]  # Phase 3: memory recall sits between ingest and planning
+    assert by_key["r1:orchestrator"]["depends_on"] == ["r1:memory"]
+    assert by_key["r1:orchestrator"]["parent_execution_id"] == by_key["r1:memory"]["id"]
     assert all(e["status"] in ("succeeded", "skipped") for e in execs)
     # r1:knowledge is the deterministic merge into the registry: no model call, so no provider is recorded.
     agent_rows = [e for e in execs if e["agent_role"] != "system" and e["status"] == "succeeded" and e["step_key"] != "r1:knowledge"]
@@ -118,7 +119,7 @@ def test_hypotheses_contradictions_and_verification_are_persisted(auth_client, l
     claim_ids = {c["id"] for c in get(auth_client, inv["id"], "claims")}
     for h in hyps:
         assert h["status"] != "verified"  # an agent verdict never marks a hypothesis verified
-        assert h["confidence_method"]["method"] == "astrion-evidence-v1"
+        assert h["confidence_method"]["method"] == "astrion-evidence-v2"
         assert 0 <= h["confidence"] <= 1
         assert set(h["supporting_claim_ids"]) <= claim_ids
         assert h["verification"]["verdict"]

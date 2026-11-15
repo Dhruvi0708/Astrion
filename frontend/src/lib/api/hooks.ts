@@ -208,3 +208,28 @@ export function useComparison(workspaceId: string | null, ids: string[]) {
     retry,
   });
 }
+
+/* ------------------------------------------------------------------ Phase 3 */
+
+export const useRuns = (id: string | undefined, d?: InvestigationDetail) => useInvestigationPart(id, 'runs', api.listRuns, d);
+export const useAssessments = (id: string | undefined, d?: InvestigationDetail) => useInvestigationPart(id, 'assessments', api.listAssessments, d);
+export const useMessages = (id: string | undefined, d?: InvestigationDetail) => useInvestigationPart(id, 'messages', api.listMessages, d);
+export const useSourceAssessments = (id: string | undefined, d?: InvestigationDetail) => useInvestigationPart(id, 'sources', api.listSourceAssessments, d);
+
+export function useWorkspaceInsights(workspaceId: string | null) {
+  return useQuery({
+    queryKey: ['workspaces', workspaceId ?? 'none', 'insights'],
+    queryFn: () => api.workspaceInsights(workspaceId as string),
+    enabled: Boolean(workspaceId),
+    retry,
+  });
+}
+
+export function useEntityTimeline(workspaceId: string | null, entityId: string | null) {
+  return useQuery({
+    queryKey: ['workspaces', workspaceId ?? 'none', 'entities', entityId ?? 'none', 'timeline'],
+    queryFn: () => api.entityTimeline(workspaceId as string, entityId as string),
+    enabled: Boolean(workspaceId && entityId),
+    retry,
+  });
+}

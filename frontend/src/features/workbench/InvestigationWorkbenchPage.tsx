@@ -18,15 +18,19 @@ import {
   useInvestigation,
   useInvestigationAction,
   useReports,
+  useAssessments,
+  useRuns,
+  useSourceAssessments,
 } from '@/lib/api/hooks';
 import { isActive, type InvestigationDetail } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 import { AgentTimeline, ProviderNotice, StagePipeline } from './components/Activity';
 import { ClaimsList, ContradictionCard, HypothesisCard, ReportView } from './components/Findings';
 import { GraphExplorer } from './graph/GraphExplorer';
+import { NextSteps, PlanningView, SourcesView } from './components/Intelligence';
 import { INVESTIGATION_STATUS, formatCost } from './status';
 
-type Tab = 'activity' | 'evidence' | 'reasoning' | 'graph' | 'report';
+type Tab = 'activity' | 'planning' | 'evidence' | 'reasoning' | 'sources' | 'graph' | 'report';
 
 function Actions({ detail }: { detail: InvestigationDetail }) {
   const start = useInvestigationAction(detail.id, 'start');
@@ -72,6 +76,9 @@ export default function InvestigationWorkbenchPage() {
   const contradictions = useContradictions(id, d);
   const reports = useReports(id, d);
   const changes = useGraphChanges(id, d);
+  const runs = useRuns(id, d);
+  const assessments = useAssessments(id, d);
+  const sources = useSourceAssessments(id, d);
   const [tab, setTab] = useState<Tab>('activity');
   const [focusHyp, setFocusHyp] = useState<string | null>(null);
 
@@ -149,8 +156,10 @@ export default function InvestigationWorkbenchPage() {
         onChange={setTab}
         options={[
           { value: 'activity', label: `Agent activity${detail.counts.executions ? ` (${detail.counts.executions})` : ''}` },
+          { value: 'planning', label: 'Planning & next steps' },
           { value: 'evidence', label: `Claims (${detail.counts.claims ?? 0})` },
           { value: 'reasoning', label: `Hypotheses & conflicts (${(detail.counts.hypotheses ?? 0) + (detail.counts.contradictions ?? 0)})` },
+          { value: 'sources', label: 'Sources' },
           { value: 'graph', label: 'Knowledge graph' },
           { value: 'report', label: 'Report' },
         ]}
@@ -233,6 +242,21 @@ export default function InvestigationWorkbenchPage() {
             )}
           </Panel>
         </div>
+      )}
+
+      {tab === 'planning' && (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <Panel title="How this run planned itself">
+            {runs.isPending ? <SkeletonRows rows={4} /> : <PlanningView run={runs.data?.[0]} assessments={assessments.data ?? []} />}
+          </Panel>
+          <Panel title="Recommended next steps" eyebrow="Active learning">
+            <NextSteps recs={runs.data?.[0]?.recommendations ?? []} />
+          </Panel>
+        </div>
+      )}
+
+      {tab === 'sources' && (
+        <Panel title="Source intelligence">{sources.isPending ? <SkeletonRows rows={3} /> : <SourcesView sources={sources.data ?? []} />}</Panel>
       )}
 
       {tab === 'graph' && (

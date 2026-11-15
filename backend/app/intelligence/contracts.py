@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 Confidence = Literal["low", "medium", "high"]
 EntityType = Literal["concept", "organization", "person", "location", "event", "metric", "method", "artifact", "other"]
 Predicate = Literal["influences", "causes", "correlates_with", "part_of", "associated_with", "precedes", "located_in", "measures"]
+ReasoningType = Literal["correlation", "causation", "inference", "speculation"]
 
 
 class Contract(BaseModel):
@@ -35,6 +36,10 @@ class ClaimView(Contract):
     source: str
     temporal_scope: str | None = None
     quotes: list[str] = Field(default_factory=list)
+    period: str | None = None  # parsed years the claim speaks about
+    superseded: bool = False  # a newer claim about the same subject updates this one
+    independent_sources: int = 1  # independent source groups that state it
+    from_memory: bool = False  # recalled from earlier investigations
 
 
 # --------------------------------------------------------------------------- Orchestrator
@@ -43,6 +48,7 @@ class ClaimView(Contract):
 class OrchestratorInput(Contract):
     question: str
     documents: list[str]  # "title — source" for each document in scope
+    prior_knowledge: list[str] = Field(default_factory=list)  # recalled from workspace memory
 
 
 class SubQuestion(Contract):
@@ -143,11 +149,21 @@ class KnowledgeOutput(Contract):
 # --------------------------------------------------------------------------- Hypothesis
 
 
+class PriorHypothesisView(Contract):
+    ref: str  # PH1 …
+    statement: str
+    status: str
+    confidence: float | None
+    investigation: str
+
+
 class HypothesisInput(Contract):
     question: str
     sub_questions: list[SubQuestion]
     claims: list[ClaimView]
     relationships: list[str]  # "entity A —predicate→ entity B (C1, C4)"
+    prior_hypotheses: list[PriorHypothesisView] = Field(default_factory=list)
+    cross_links: list[str] = Field(default_factory=list)  # two-step connections across investigations
 
 
 class ProposedHypothesis(Contract):
@@ -158,6 +174,9 @@ class ProposedHypothesis(Contract):
     test_plan: str
     assumptions: list[str]
     plausibility: Confidence
+    reasoning_type: ReasoningType
+    falsification_conditions: list[str]  # observations that would show the hypothesis is wrong
+    revisits_prior_ref: str | None  # PH# when this re-evaluates an earlier hypothesis
 
 
 class HypothesisOutput(Contract):
@@ -195,6 +214,8 @@ class HypothesisForReview(Contract):
     rationale: str
     supporting: list[ClaimView]
     opposing: list[ClaimView]
+    reasoning_type: str | None = None
+    debate: list[str] = Field(default_factory=list)  # challenge / response transcript
 
 
 class ContradictionForReview(Contract):
@@ -204,6 +225,7 @@ class ContradictionForReview(Contract):
     kind: str
     is_genuine: bool
     explanation: str
+    temporal_note: str | None = None
 
 
 class VerificationInput(Contract):
@@ -236,6 +258,8 @@ class VerifiedHypothesisView(Contract):
     confidence: Confidence
     supporting_claim_refs: list[str]
     opposing_claim_refs: list[str]
+    reasoning_type: str | None = None
+    consensus: str | None = None  # after debate + verification
 
 
 class ContradictionView(Contract):
@@ -257,6 +281,8 @@ class SynthesisInput(Contract):
     contradictions: list[ContradictionView]
     verification_summary: str
     documents_without_evidence: list[str]
+    source_notes: list[str] = Field(default_factory=list)  # source reliability (separate from claim confidence)
+    stop_reason: str | None = None  # why evidence gathering stopped
 
 
 class KeyFinding(Contract):
@@ -280,3 +306,119 @@ class SynthesisOutput(Contract):
     contradictions: list[ItemAssessment]
     unresolved_questions: list[str]
     limitations: list[str]
+
+
+# --------------------------------------------------------------------------- Planner (Phase 3)
+
+
+class CoverageView(Contract):
+    sub_question_id: str
+    question: str
+    claims: int
+    documents: int
+
+
+class CandidateAction(Contract):
+    id: str  # A1 …
+    kind: str
+    target: str
+    explanation: str
+    score: float
+    passages: int
+
+
+class PlannerInput(Contract):
+    question: str
+    iteration: int
+    iterations_left: int
+    sub_questions: list[SubQuestion]
+    coverage: list[CoverageView]
+    candidates: list[CandidateAction]
+    recent_claims: list[str]
+    budget_note: str
+
+
+class NewSubQuestion(Contract):
+    question: str
+    rationale: str
+
+
+class PlannerOutput(Contract):
+    sufficient: bool
+    rationale: str
+    selected_action_ids: list[str]
+    new_sub_questions: list[NewSubQuestion]
+    evidence_gaps: list[str]
+
+
+# --------------------------------------------------------------------------- Debate (Phase 3)
+
+
+class HypothesisForDebate(Contract):
+    ref: str  # H1 …
+    statement: str
+    rationale: str
+    reasoning_type: str
+    assumptions: list[str]
+    falsification_conditions: list[str]
+    supporting: list[ClaimView]
+    opposing: list[ClaimView]
+
+
+ObjectionKind = Literal["alternative_explanation", "insufficient_evidence", "confounder", "temporal_mismatch", "scope", "counter_evidence", "reasoning_type"]
+
+
+class ChallengerInput(Contract):
+    question: str
+    hypotheses: list[HypothesisForDebate]
+    claims: list[ClaimView]
+
+
+class Objection(Contract):
+    kind: ObjectionKind
+    argument: str
+    cited_claim_refs: list[str]
+
+
+class Challenge(Contract):
+    hypothesis_ref: str
+    objections: list[Objection]
+    alternative_hypothesis: str | None
+    strength: Literal["weak", "moderate", "strong"]
+
+
+class ChallengerOutput(Contract):
+    challenges: list[Challenge]
+
+
+class ObjectionView(Contract):
+    id: str  # H1.O1
+    hypothesis_ref: str
+    kind: str
+    argument: str
+    cited_claims: list[ClaimView]
+
+
+class DefenseInput(Contract):
+    question: str
+    hypotheses: list[HypothesisForDebate]
+    objections: list[ObjectionView]
+    claims: list[ClaimView]
+
+
+class DefenseResponse(Contract):
+    objection_id: str
+    stance: Literal["rebut", "concede", "revise"]
+    argument: str
+    cited_claim_refs: list[str]
+
+
+class Revision(Contract):
+    hypothesis_ref: str
+    revised_statement: str
+    revised_reasoning_type: ReasoningType
+
+
+class DefenseOutput(Contract):
+    responses: list[DefenseResponse]
+    revisions: list[Revision]
