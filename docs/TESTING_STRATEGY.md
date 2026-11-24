@@ -114,7 +114,7 @@ Bugs caught while building Phase 3:
 | Suite | Result |
 |---|---|
 | Backend on SQLite + real Neo4j 5.26, upgraded dependencies | 206 passed, 0 skipped |
-| Backend on PostgreSQL, and Alembic upgrade/downgrade | **Not run on the final code.** The local cluster was damaged. Last full PostgreSQL + Neo4j run: 193 passed, before the product routes and dependency upgrades |
+| Backend on PostgreSQL + Neo4j, and migrations | Passed in CI on commit 288e378. Not run locally on the final code: the local cluster was damaged |
 | Ruff lint and format | pass |
 | Vitest / ESLint / `tsc` / build | 57 passed / pass / pass / pass |
 | Playwright (API on SQLite + real Neo4j, fixture provider) | 15 passed in one run |
