@@ -18,7 +18,8 @@ function Footer() {
         <div className="max-w-xs">
           <Logo />
           <p className="mt-3 text-xs leading-relaxed text-ink-faint">
-            The Living Intelligence Engine. Phase 1 — product foundation. All graph, agent and discovery content on this page is illustrative sample data.
+            The Living Intelligence Engine — autonomous, evidence-first research. Graphs and discoveries shown on this page are labelled illustrative samples;
+            everything inside the app comes from your own documents.
           </p>
         </div>
         <nav aria-label="Application">

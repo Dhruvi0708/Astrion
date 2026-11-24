@@ -409,6 +409,8 @@ export default function UniverseExplorerPage() {
         <div className="mx-auto max-w-[1480px] px-4 py-5 md:px-8">
           <GraphExplorer
             workspaceId={active.id}
+            investigationFilter
+            initialEntityId={params.get('entity')}
             height={620}
             emptyHint="Nothing has been extracted in this workspace yet. Run an investigation, or switch to the sample universe to see how the explorer works."
           />

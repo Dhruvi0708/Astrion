@@ -101,6 +101,14 @@ Everything under `/app` is wrapped in `RequireAuth`: while the session is being 
 - **Discovery Laboratory:** opens on real workspace insights (`features/discovery/WorkspaceInsights.tsx`), with the sample lab behind a toggle (`?view=sample`).
 - **Investigations comparison:** shows the evolution diff for each consecutive pair.
 
+## Product screens
+
+- Dashboard: `features/overview`. Investigation cockpit and report: `features/workbench`. Entity, hypothesis, contradiction and evidence libraries: `features/explorer`.
+- 3D graph: `workbench/graph`, with search, filters, camera controls, neighbourhood expansion, an inspector and a list fallback.
+- Live runs use server-sent events and fall back to polling if the stream closes early. The badge says which one is in use.
+- Session refreshes take a cross-tab lock, so two tabs cannot invalidate each other.
+- PDF export is the browser print dialog with print styles.
+
 ## Conventions
 
 - Feature folders own their components; shared primitives live in `components/ui`.

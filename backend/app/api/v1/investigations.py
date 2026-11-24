@@ -1,18 +1,30 @@
+import asyncio
+import json
+import time
 import uuid
+from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
+from sqlalchemy import func, select
+from sqlalchemy.orm import sessionmaker
 
 from app.api.deps import CurrentUser, DbSession, Graph, Limit, Offset
 from app.core.config import get_settings
 from app.intelligence.llm import StructuredLLM
 from app.intelligence.wiring import get_intelligence_llm
+from app.models import AgentExecution, Investigation, User
 from app.schemas.common import ErrorResponse, Page
 from app.schemas.investigation import ExecutionRead, IntelligenceStatus, InvestigationCreate, InvestigationDetail, InvestigationRead
 from app.services import graph as graph_service
 from app.services import investigations as svc
+from app.services.auth import login_is_live
 
 router = APIRouter(tags=["investigations"])
+EVENT_POLL_SECONDS = 1.0
+EVENT_STREAM_SECONDS = 1800.0
 ERRORS = {401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}}
 LIFECYCLE = {**ERRORS, 409: {"model": ErrorResponse}, 503: {"model": ErrorResponse}}
 LLM = Annotated[StructuredLLM | None, Depends(get_intelligence_llm)]
@@ -51,8 +63,16 @@ def create_investigation(workspace_id: uuid.UUID, payload: InvestigationCreate, 
 
 
 @router.get("/workspaces/{workspace_id}/investigations", response_model=Page[InvestigationRead], responses=ERRORS)
-def list_investigations(workspace_id: uuid.UUID, user: CurrentUser, db: DbSession, limit: Limit = 50, offset: Offset = 0) -> Page[InvestigationRead]:
-    items, total = svc.list_for_workspace(db, user, workspace_id, limit, offset)
+def list_investigations(
+    workspace_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: Limit = 50,
+    offset: Offset = 0,
+    status: Annotated[str | None, Query(description="A status, or 'active'")] = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+) -> Page[InvestigationRead]:
+    items, total = svc.list_for_workspace(db, user, workspace_id, limit, offset, status, q)
     return Page(items=items, total=total, limit=limit, offset=offset)
 
 
@@ -216,3 +236,65 @@ def entity_timeline(workspace_id: uuid.UUID, entity_id: uuid.UUID, user: Current
     if ent is None or ent.workspace_id != workspace_id:
         raise NotFoundError(f"Entity {entity_id} was not found.")
     return timeline(db, entity_id)
+
+
+# --------------------------------------------------------------------------- live events (SSE) and export
+
+
+@router.get("/investigations/{investigation_id}/events", responses=ERRORS, summary="Server-Sent Events: recorded execution state as it changes")
+def investigation_events(investigation_id: uuid.UUID, request: Request, user: CurrentUser, db: DbSession) -> StreamingResponse:
+    """Streams the investigation's *recorded* state. The server re-reads the database every second and sends a
+    `snapshot` event only when something changed; it closes the stream once the run is no longer active, the
+    user signs out, or the client goes away. Nothing is synthesised: every event is a database read.
+
+    The generator is async: between reads it sleeps on the event loop, so open streams never hold the worker
+    threads that serve ordinary requests."""
+    svc.get_owned_investigation(db, user, investigation_id)  # 404 for anyone but the owner
+    sessions = sessionmaker(bind=db.get_bind(), autoflush=False, expire_on_commit=False)
+    user_id, session_id = user.id, request.state.session_id
+
+    def read(last: tuple | None) -> tuple[tuple | None, str | None, bool]:
+        """(fingerprint, payload if changed, run still active); fingerprint None = stop, no longer authorised."""
+        with sessions() as s:
+            owner = s.get(User, user_id)
+            inv = s.get(Investigation, investigation_id)
+            if owner is None or inv is None or not login_is_live(s, session_id):
+                return None, None, False
+            count, latest = s.execute(
+                select(func.count(AgentExecution.id), func.max(AgentExecution.updated_at)).where(AgentExecution.investigation_id == investigation_id)
+            ).one()
+            fingerprint = (inv.status.value, inv.run_count, count, str(latest))
+            if fingerprint == last:
+                return fingerprint, None, True
+            detail = svc.detail(s, owner, investigation_id)
+            execs = [ExecutionRead.model_validate(e).model_dump(mode="json") for e in svc.executions(s, owner, investigation_id)]
+            return fingerprint, json.dumps({"detail": detail.model_dump(mode="json"), "executions": execs}), detail.can_cancel
+
+    async def stream() -> AsyncIterator[str]:
+        last, idle = None, 0
+        deadline = time.monotonic() + EVENT_STREAM_SECONDS
+        while time.monotonic() < deadline and not await request.is_disconnected():
+            last, payload, active = await run_in_threadpool(read, last)
+            if last is None:
+                return
+            if payload is not None:
+                idle = 0
+                yield f"event: snapshot\ndata: {payload}\n\n"
+                if not active:
+                    yield "event: end\ndata: {}\n\n"
+                    return
+            else:
+                idle += 1
+                if idle % 15 == 0:
+                    yield ": keep-alive\n\n"
+            await asyncio.sleep(EVENT_POLL_SECONDS)
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.get("/investigations/{investigation_id}/report.md", responses=ERRORS, summary="Export the latest (or a given run's) report as Markdown")
+def export_report_markdown(investigation_id: uuid.UUID, user: CurrentUser, db: DbSession, run: Annotated[int | None, Query(ge=1)] = None) -> Response:
+    from app.services.explorer import report_markdown
+
+    text, filename = report_markdown(db, user, investigation_id, run)
+    return Response(text, media_type="text/markdown; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{filename}"'})

@@ -1,6 +1,6 @@
 import { Database, FileInput, GitBranch, Network, Sparkles, Telescope, type LucideIcon } from 'lucide-react';
 
-export type StageStatus = 'foundation' | 'planned';
+export type StageStatus = 'live';
 
 export interface Stage {
   id: string;
@@ -24,8 +24,8 @@ export const STAGES: Stage[] = [
     description: 'Papers, reports, datasets and articles are registered as sources with full provenance metadata, then stored as versioned documents.',
     produces: ['Sources', 'Documents', 'Content hashes'],
     icon: FileInput,
-    status: 'foundation',
-    phaseNote: 'Phase 1 ships the source & document metadata API. File upload and parsing are planned.',
+    status: 'live',
+    phaseNote: 'Upload PDF, text, Markdown, CSV, JSON or HTML. Text is extracted into passages, with honest processing status.',
   },
   {
     id: 'understand',
@@ -35,8 +35,8 @@ export const STAGES: Stage[] = [
     description: 'Language models read each document and extract entities, claims and the exact evidence spans that support them.',
     produces: ['Entities', 'Claims', 'Evidence spans'],
     icon: Telescope,
-    status: 'planned',
-    phaseNote: 'Data model for claims and evidence exists. Extraction is planned for Phase 2.',
+    status: 'live',
+    phaseNote: 'The Research agent extracts claims whose quotes are checked verbatim against the source passage.',
   },
   {
     id: 'connect',
@@ -46,8 +46,8 @@ export const STAGES: Stage[] = [
     description: 'Entities are resolved across documents and linked by typed relationships in a traceable knowledge graph stored in Neo4j.',
     produces: ['Graph entities', 'Relationships', 'Clusters'],
     icon: GitBranch,
-    status: 'foundation',
-    phaseNote: 'Neo4j connection layer and graph registry tables exist. Relationship extraction is planned.',
+    status: 'live',
+    phaseNote: 'Entities are de-duplicated and linked by typed relationships in PostgreSQL and Neo4j, with a consistency check.',
   },
   {
     id: 'investigate',
@@ -57,8 +57,8 @@ export const STAGES: Stage[] = [
     description: 'Specialised agents generate questions, traverse the graph, retrieve evidence and challenge each other’s conclusions.',
     produces: ['Investigations', 'Agent executions', 'Findings'],
     icon: Network,
-    status: 'planned',
-    phaseNote: 'Execution records are modelled. No agents run in Phase 1.',
+    status: 'live',
+    phaseNote: 'Nine agents plan, research, debate and verify within hard budgets. Every step is recorded and resumable.',
   },
   {
     id: 'discover',
@@ -68,8 +68,8 @@ export const STAGES: Stage[] = [
     description: 'Patterns across the graph reveal conflicting evidence, under-studied regions and new testable hypotheses — always labelled as unverified.',
     produces: ['Contradictions', 'Knowledge gaps', 'Hypotheses'],
     icon: Sparkles,
-    status: 'planned',
-    phaseNote: 'Hypothesis model with verification states exists. Discovery engine is planned.',
+    status: 'live',
+    phaseNote: 'Hypotheses carry a reasoning type and falsification conditions; conflicts are detected and resolved over time.',
   },
   {
     id: 'evolve',
@@ -79,7 +79,7 @@ export const STAGES: Stage[] = [
     description: 'New evidence updates confidence, and graph snapshots record how understanding shifted — and why.',
     produces: ['Graph snapshots', 'Confidence history', 'Change log'],
     icon: Database,
-    status: 'planned',
-    phaseNote: 'Graph snapshot model exists. Versioned evolution tracking is planned.',
+    status: 'live',
+    phaseNote: 'New investigations reuse workspace memory; outdated claims are superseded and every change is logged.',
   },
 ];

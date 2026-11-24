@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { GitCompare, Plus, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
-import { Field, Input, Textarea } from '@/components/ui/Form';
+import { Field, Input, Select, Textarea } from '@/components/ui/Form';
 import { Panel } from '@/components/ui/Panel';
 import { EmptyState, ErrorState, SkeletonRows } from '@/components/ui/States';
 import { Page, PageHeader } from '@/components/layout/PageHeader';
@@ -171,8 +172,18 @@ function Comparison({ workspaceId, ids }: { workspaceId: string; ids: string[] }
 export default function InvestigationsPage() {
   const { active, isPending: wsPending } = useActiveWorkspace();
   const status = useIntelligenceStatus();
-  const list = useInvestigations(active?.id ?? null);
-  const [creating, setCreating] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const statusFilter = params.get('status') ?? '';
+  const [search, setSearch] = useState('');
+  const list = useInvestigations(active?.id ?? null, { status: statusFilter || undefined, q: search.trim() || undefined });
+  const [creating, setCreatingState] = useState(params.get('new') === '1');
+  const setCreating = (open: boolean) => {
+    setCreatingState(open);
+    if (!open && params.get('new')) {
+      params.delete('new');
+      setParams(params, { replace: true });
+    }
+  };
   const [compare, setCompare] = useState<string[]>([]);
   const [showCompare, setShowCompare] = useState(false);
 
@@ -208,10 +219,40 @@ export default function InvestigationsPage() {
             )
           }
         >
+          <div className="mb-3 flex flex-wrap items-center gap-2" role="search">
+            <Input
+              aria-label="Search investigations"
+              placeholder="Search title or question"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 w-64"
+            />
+            <Select
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(e) => {
+                if (e.target.value) params.set('status', e.target.value);
+                else params.delete('status');
+                setParams(params, { replace: true });
+              }}
+              className="h-8 w-40"
+            >
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="interrupted">Interrupted</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="draft">Draft</option>
+            </Select>
+            {list.data && <span className="text-2xs text-ink-faint">{list.data.total} shown</span>}
+          </div>
           {list.isPending ? (
             <SkeletonRows rows={4} />
           ) : list.isError ? (
             <ErrorState error={list.error} onRetry={() => list.refetch()} />
+          ) : list.data.items.length === 0 && (statusFilter || search.trim()) ? (
+            <p className="py-6 text-center text-sm text-ink-muted">No investigation matches these filters.</p>
           ) : list.data.items.length === 0 ? (
             <EmptyState
               icon={<Search size={18} />}
@@ -252,6 +293,11 @@ export default function InvestigationsPage() {
                         {inv.summary ? ` · ${inv.summary}` : ''}
                       </p>
                     </Link>
+                    {inv.status === 'completed' && (
+                      <ButtonLink to={`/app/investigations/${inv.id}/report`} size="sm" variant="ghost" className="shrink-0">
+                        Report
+                      </ButtonLink>
+                    )}
                   </li>
                 );
               })}

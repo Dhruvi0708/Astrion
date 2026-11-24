@@ -76,7 +76,7 @@ export default function IntelligenceNetworkPage() {
       />
       <LiveEngine />
       <Notice tone="sample" className="mt-8">
-        Everything below this line is the Phase 1 design illustration: a hand-written walkthrough with sample roles. It is kept as a reference and is not
+        Everything below this line is the original design illustration: a hand-written walkthrough with sample roles. It is kept as a reference and is not
         connected to the engine above.
       </Notice>
 

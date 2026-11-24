@@ -63,7 +63,7 @@ class TooManyRequestsError(AppError):
 
 
 class PayloadTooLargeError(AppError):
-    status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    status_code = status.HTTP_413_CONTENT_TOO_LARGE
     code = "payload_too_large"
 
 
@@ -90,7 +90,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:
         details = [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
-        return _envelope(status.HTTP_422_UNPROCESSABLE_ENTITY, "validation_error", "Request validation failed.", details)
+        return _envelope(status.HTTP_422_UNPROCESSABLE_CONTENT, "validation_error", "Request validation failed.", details)
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:

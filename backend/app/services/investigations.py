@@ -67,6 +67,30 @@ class ProviderUnavailable(AppError):
     code = "llm_unavailable"
 
 
+class TooManyActive(AppError):
+    status_code = 429
+    code = "too_many_active_investigations"
+
+
+def _check_user_capacity(db: Session, user: User) -> None:
+    """Each user may have only a few runs in flight (protects the shared runner and the model budget)."""
+    from app.core.config import get_settings
+    from app.models import Workspace
+
+    limit = get_settings().max_active_investigations_per_user
+    active = (
+        db.scalar(
+            select(func.count())
+            .select_from(Investigation)
+            .join(Workspace, Workspace.id == Investigation.workspace_id)
+            .where(Workspace.owner_id == user.id, Investigation.status.in_(list(ACTIVE)))
+        )
+        or 0
+    )
+    if active >= limit:
+        raise TooManyActive(f"You already have {active} investigation(s) running (limit {limit}). Wait for one to finish or cancel it.")
+
+
 def _read(inv: Investigation) -> InvestigationRead:
     return InvestigationRead.model_validate(inv).model_copy(update={"document_ids": [str(d) for d in inv.document_ids]})
 
@@ -102,11 +126,20 @@ def create(db: Session, user: User, workspace_id: uuid.UUID, payload: Investigat
     return _read(inv)
 
 
-def list_for_workspace(db: Session, user: User, workspace_id: uuid.UUID, limit: int, offset: int) -> tuple[list[InvestigationRead], int]:
+def list_for_workspace(
+    db: Session, user: User, workspace_id: uuid.UUID, limit: int, offset: int, status: str | None = None, q: str | None = None
+) -> tuple[list[InvestigationRead], int]:
     get_owned_workspace(db, user, workspace_id)
-    where = Investigation.workspace_id == workspace_id
-    total = db.scalar(select(func.count()).select_from(Investigation).where(where)) or 0
-    rows = db.scalars(select(Investigation).where(where).order_by(Investigation.created_at.desc(), Investigation.id).limit(limit).offset(offset))
+    where = [Investigation.workspace_id == workspace_id]
+    if status == "active":
+        where.append(Investigation.status.in_(list(ACTIVE)))
+    elif status:
+        where.append(Investigation.status == status)
+    if q:
+        like = f"%{q.lower()}%"
+        where.append(func.lower(Investigation.title).like(like) | func.lower(Investigation.question).like(like))
+    total = db.scalar(select(func.count()).select_from(Investigation).where(*where)) or 0
+    rows = db.scalars(select(Investigation).where(*where).order_by(Investigation.created_at.desc(), Investigation.id).limit(limit).offset(offset))
     return [_read(r) for r in rows], total
 
 
@@ -199,6 +232,7 @@ def start(db: Session, user: User, investigation_id: uuid.UUID, llm_available: b
         raise ProviderUnavailable(
             "No LLM provider is configured. Set ANTHROPIC_API_KEY on the server (or ASTRION_LLM_PROVIDER=fixture for offline development)."
         )
+    _check_user_capacity(db, user)
     _transition(db, inv, STARTABLE, new_run=True)
     return inv
 
@@ -209,6 +243,7 @@ def resume(db: Session, user: User, investigation_id: uuid.UUID, llm_available: 
         raise ProviderUnavailable("No LLM provider is configured.")
     if inv.run_count == 0:
         raise ConflictError("This investigation has never run; start it instead.")
+    _check_user_capacity(db, user)
     _transition(db, inv, RESUMABLE, new_run=False)
     return inv
 

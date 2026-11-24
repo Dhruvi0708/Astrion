@@ -79,7 +79,8 @@ export function Hero() {
             transition={{ duration: 0.9, ease, delay: 0.6 }}
             className="mt-7 max-w-[520px] text-[1.05rem] leading-relaxed text-ink-muted md:text-lg"
           >
-            An intelligent universe that connects information, discovers hidden relationships, and transforms evidence into new possibilities.
+            An autonomous intelligence engine. Specialised agents read your documents, connect the evidence into a living knowledge graph, debate hypotheses and
+            report what is known, contested and still unknown — every claim traced to its source.
           </motion.p>
 
           <motion.div

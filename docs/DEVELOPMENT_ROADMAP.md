@@ -22,7 +22,7 @@ Product identity, landing page with 3D universe, app shell and eight environment
 5. Move the login rate limiter to a shared store before running more than one API instance.
 6. Assign owners to (or delete) any pre-auth Phase 1 workspaces.
 
-## Phase 2 — Core intelligence engine *(this release, uncommitted on `foundation-hardening`)*
+## Phase 2 — Core intelligence engine *(done)*
 Done: text extraction (PDF, txt, md, csv, json, html); seven agents with typed contracts and Claude structured outputs; a durable orchestrator (parallel steps, retries, timeouts, resume, cancel, restart recovery); evidence-checked claims; entity resolution and graph evolution in PostgreSQL with Neo4j sync and consistency checks; hypotheses with a computed confidence method; contradiction detection; verification; cited reports; investigation history and comparison; the workbench UI with a live execution trace and a 3D knowledge graph; Universe Explorer and Intelligence Network on real data. See [INTELLIGENCE_ENGINE.md](INTELLIGENCE_ENGINE.md).
 
 ### Remaining before relying on Phase 2
@@ -32,7 +32,7 @@ Done: text extraction (PDF, txt, md, csv, json, html); seven agents with typed c
 4. Human verification workflow: move hypotheses to `verified`/`refuted`, and edit or reject claims.
 5. A shared job queue if more than one API instance runs investigations (the runner is in-process).
 
-## Phase 3 — Autonomous intelligence *(this release, uncommitted on `foundation-hardening`)*
+## Phase 3 — Autonomous intelligence *(done)*
 Done:
 - adaptive, budgeted investigation planning with a Planner agent and explained active-learning choices
 - persistent memory reused by new investigations
@@ -53,5 +53,9 @@ See [INTELLIGENCE_ENGINE.md](INTELLIGENCE_ENGINE.md#phase-3--autonomous-intellig
 3. A human verification workflow (accept or reject claims, mark hypotheses verified).
 4. A shared job queue for multiple API instances.
 
-## Phase 5 — Simulate
-- Evidence-grounded scenario models with uncertainty; `simulation_scenarios.is_illustrative=false` only for real engine output.
+## Product build *(final)*
+Dashboard, cockpit with live events, 3D graph exploration, Intelligence Explorer, reports and export, source processing, landing copy, deployment files and dependency upgrades. See [DEPLOYMENT.md](DEPLOYMENT.md). No further phase is planned.
+
+## Known gaps (not scheduled)
+- The Simulation Laboratory is an illustrative toy model; `simulation_scenarios.is_illustrative=false` is reserved for real engine output.
+- The "Remaining" items under Phase 3 still apply.

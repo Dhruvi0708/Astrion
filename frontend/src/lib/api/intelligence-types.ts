@@ -306,6 +306,8 @@ export interface EntityDetail {
     confidence: number | null;
     claim_ids: string[];
   }[];
+  hypotheses: { id: string; statement: string; status: string; consensus: string | null; confidence: number | null; investigation_id: string }[];
+  investigations: { id: string; title: string | null }[];
 }
 
 export interface InvestigationComparison {

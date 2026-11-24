@@ -1,12 +1,13 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Download, ExternalLink, FileText, Plus, Upload, X } from 'lucide-react';
-import { Badge, PlannedBadge } from '@/components/ui/Badge';
+import { Badge } from '@/components/ui/Badge';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Form';
 import { ErrorState, SkeletonRows } from '@/components/ui/States';
 import { api, ApiError } from '@/lib/api/client';
-import { useCreateDocument, useDocuments, useUploadDocument } from '@/lib/api/hooks';
-import type { Source } from '@/lib/api/types';
+import { useCreateDocument, useDocumentIntelligence, useDocuments, useProcessDocument, useUploadDocument } from '@/lib/api/hooks';
+import type { Source, SourceDocument } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 import { TYPE_LABEL } from './SourceForm';
 
@@ -153,6 +154,94 @@ function DownloadButton({ documentId, fallbackName }: { documentId: string; fall
   );
 }
 
+const STATUS_TONE: Record<string, 'neutral' | 'verified' | 'offline' | 'cyan'> = {
+  registered: 'neutral',
+  queued: 'cyan',
+  processing: 'cyan',
+  processed: 'verified',
+  failed: 'offline',
+};
+
+function DocumentRow({ doc, sourceId }: { doc: SourceDocument; sourceId: string }) {
+  const [open, setOpen] = useState(false);
+  const process = useProcessDocument(sourceId);
+  const intel = useDocumentIntelligence(open ? doc.id : null);
+  const status = process.data?.processing_status ?? doc.processing_status;
+  const error = process.data?.processing_error ?? (status === 'failed' ? intel.data?.processing_error : null);
+  return (
+    <li className="rounded-md border border-line bg-deep/50 px-3 py-2" data-testid="document-row">
+      <div className="flex items-start gap-2.5">
+        <FileText size={14} className="mt-0.5 shrink-0 text-ink-faint" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[0.8rem] text-ink">{doc.title}</p>
+          <p className="flex flex-wrap items-center gap-x-1.5 text-2xs text-ink-faint">
+            <span>{doc.media_type}</span>
+            {doc.byte_size != null && <span>· {(doc.byte_size / 1024).toFixed(1)} KB</span>}
+            <span>· {doc.has_file ? 'stored' : 'metadata only'}</span>
+            <Badge tone={STATUS_TONE[status] ?? 'neutral'} className="ml-1">
+              <span data-testid="processing-status">{status}</span>
+            </Badge>
+          </p>
+          {error && <p className="mt-1 text-2xs text-conflict">{error}</p>}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {doc.has_file && status !== 'processed' && (
+            <Button size="sm" variant="outline" onClick={() => process.mutate(doc.id)} disabled={process.isPending}>
+              {process.isPending ? 'Extracting…' : 'Extract text'}
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+            {open ? 'Hide' : 'Details'}
+          </Button>
+          {doc.has_file && <DownloadButton documentId={doc.id} fallbackName={doc.original_filename ?? doc.title} />}
+        </div>
+      </div>
+      {open && (
+        <div className="mt-2 border-t border-line pt-2 text-2xs text-ink-muted" data-testid="document-intelligence">
+          {intel.isPending ? (
+            <SkeletonRows rows={2} />
+          ) : intel.isError ? (
+            <ErrorState error={intel.error} compact />
+          ) : intel.data ? (
+            <div className="space-y-1.5">
+              <p>
+                {intel.data.passages} passage(s) · {intel.data.extracted_characters.toLocaleString()} characters extracted · {intel.data.claim_count} claim(s) ·{' '}
+                {intel.data.entities.length} entit{intel.data.entities.length === 1 ? 'y' : 'ies'}
+                {doc.content_hash && <span className="font-mono"> · sha256 {doc.content_hash.slice(0, 12)}…</span>}
+              </p>
+              {intel.data.entities.length > 0 && (
+                <p>
+                  Entities:{' '}
+                  {intel.data.entities.slice(0, 12).map((e) => (
+                    <Link key={e.id} to={`/app/universe?entity=${e.id}`} className="mr-1.5 text-ink hover:text-cyan">
+                      {e.name}
+                    </Link>
+                  ))}
+                </p>
+              )}
+              {intel.data.claims.slice(0, 5).map((c) => (
+                <p key={c.id} className="text-ink">
+                  — {c.statement}
+                </p>
+              ))}
+              {intel.data.investigations.length > 0 && (
+                <p>
+                  Investigations:{' '}
+                  {intel.data.investigations.map((i) => (
+                    <Link key={i.id} to={`/app/investigations/${i.id}`} className="mr-1.5 text-ink hover:text-cyan">
+                      {i.title} ({i.relation})
+                    </Link>
+                  ))}
+                </p>
+              )}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </li>
+  );
+}
+
 export function SourceDetail({ source, onClose }: { source: Source; onClose: () => void }) {
   const docs = useDocuments(source.id);
   const [adding, setAdding] = useState(false);
@@ -220,26 +309,16 @@ export function SourceDetail({ source, onClose }: { source: Source; onClose: () 
         ) : docs.data?.items.length ? (
           <ul className="space-y-1.5">
             {docs.data.items.map((d) => (
-              <li key={d.id} className="flex items-start gap-2.5 rounded-md border border-line bg-deep/50 px-3 py-2">
-                <FileText size={14} className="mt-0.5 shrink-0 text-ink-faint" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[0.8rem] text-ink">{d.title}</p>
-                  <p className="text-2xs text-ink-faint">
-                    {d.media_type}
-                    {d.byte_size != null && ` · ${(d.byte_size / 1024).toFixed(1)} KB`} · {d.has_file ? 'stored' : 'metadata only'} · {d.processing_status}
-                  </p>
-                </div>
-                {d.has_file && <DownloadButton documentId={d.id} fallbackName={d.original_filename ?? d.title} />}
-              </li>
+              <DocumentRow key={d.id} doc={d} sourceId={source.id} />
             ))}
           </ul>
         ) : (
           !adding && <p className="rounded-md border border-dashed border-line px-3 py-4 text-center text-xs text-ink-muted">No documents yet.</p>
         )}
-        <div className="mt-4 flex items-start gap-2 rounded-md border border-dashed border-line-strong px-3 py-2.5 text-2xs leading-relaxed text-ink-faint">
-          <PlannedBadge label="Planned" />
-          <span>Parsing and claim extraction. Uploaded files are stored securely but not read yet — status stays “registered”.</span>
-        </div>
+        <p className="mt-4 text-2xs leading-relaxed text-ink-faint">
+          Uploading stores a file; it is <em>registered</em> until its text is extracted. Extraction runs when you press “Extract text” or when an investigation
+          reads the document. A file is marked <em>processed</em> only after its text was actually extracted, and <em>failed</em> with the reason otherwise.
+        </p>
       </div>
     </div>
   );

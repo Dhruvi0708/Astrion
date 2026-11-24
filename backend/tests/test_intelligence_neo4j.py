@@ -116,3 +116,49 @@ def test_adaptive_run_with_iterations_keeps_neo4j_consistent(graph_app, auth_cli
         assert found == 2
     finally:
         _wipe(neo4j_client, ws)
+
+
+def test_neighbourhood_comes_from_neo4j_and_matches_postgres(graph_app, app, auth_client, neo4j_client):
+    from app.graph.client import get_graph_client
+    from tests import phase3_data as d
+
+    s = d.seed(auth_client, "Neo4j neighbourhood")
+    ws = s["ws"]["id"]
+    try:
+        assert d.run(auth_client, ws, d.QUESTION_1)["status"] == "completed"
+        ent = auth_client.get(f"/api/v1/workspaces/{ws}/entities").json()["items"][0]
+        neo = auth_client.get(f"/api/v1/workspaces/{ws}/graph/entities/{ent['id']}/neighbourhood", params={"depth": 2}).json()
+        assert neo["source"] == "neo4j" and neo["fallback_reason"] is None
+        app.dependency_overrides.pop(get_graph_client)  # same request against the PostgreSQL registry
+        app.dependency_overrides[get_graph_client] = lambda: type("NoGraph", (), {})()
+        pg = auth_client.get(f"/api/v1/workspaces/{ws}/graph/entities/{ent['id']}/neighbourhood", params={"depth": 2}).json()
+        assert pg["source"] == "postgres"
+        assert {n["key"] for n in neo["nodes"]} == {n["key"] for n in pg["nodes"]}
+        assert {e["key"] for e in neo["edges"]} == {e["key"] for e in pg["edges"]}
+    finally:
+        app.dependency_overrides[get_graph_client] = lambda: neo4j_client
+        _wipe(neo4j_client, ws)
+
+
+def test_graph_can_be_rebuilt_from_postgres_after_loss(graph_app, auth_client, neo4j_client, db_session, monkeypatch):
+    """Disaster recovery: drop a workspace's graph in Neo4j, rebuild it from PostgreSQL, and it is consistent again."""
+    from sqlalchemy.orm import sessionmaker
+
+    from app.graph import resync
+    from tests import phase3_data as d
+
+    s = d.seed(auth_client, "Neo4j recovery")
+    ws = s["ws"]["id"]
+    try:
+        assert d.run(auth_client, ws, d.QUESTION_1)["status"] == "completed"
+        _wipe(neo4j_client, ws)
+        assert auth_client.get(f"/api/v1/workspaces/{ws}/graph/consistency").json()["consistent"] is False
+        monkeypatch.setattr(resync, "Neo4jGraphClient", lambda settings: neo4j_client)
+        monkeypatch.setattr(resync, "get_sessionmaker", lambda: sessionmaker(bind=db_session.get_bind()))
+        monkeypatch.setattr(neo4j_client, "close", lambda: None)
+        settings = resync.get_settings().model_copy(update={"neo4j_uri": URI})
+        monkeypatch.setattr(resync, "get_settings", lambda: settings)
+        assert resync.main([ws]) == 0
+        assert auth_client.get(f"/api/v1/workspaces/{ws}/graph/consistency").json()["consistent"] is True
+    finally:
+        _wipe(neo4j_client, ws)

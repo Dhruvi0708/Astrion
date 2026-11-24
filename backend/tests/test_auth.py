@@ -110,12 +110,16 @@ def test_refresh_rotates_and_detects_reuse(client, db_session, monkeypatch):
     second_cookie = client.cookies.get(REFRESH)
     assert second_cookie != first_cookie
 
+    # Send each token explicitly (the client's cookie jar may hold several same-named cookies).
+    client.cookies.clear()
+
+    def refresh_with(token: str) -> int:
+        return client.post("/api/v1/auth/refresh", headers={**CLIENT_HEADERS, "Cookie": f"{REFRESH}={token}"}).status_code
+
     # Replaying the rotated (stolen) token revokes the whole session family...
-    client.cookies.set(REFRESH, first_cookie, path="/api/v1/auth")
-    assert client.post("/api/v1/auth/refresh", headers=CLIENT_HEADERS).status_code == 401
+    assert refresh_with(first_cookie) == 401
     # ...so the legitimate newer token stops working too.
-    client.cookies.set(REFRESH, second_cookie, path="/api/v1/auth")
-    assert client.post("/api/v1/auth/refresh", headers=CLIENT_HEADERS).status_code == 401
+    assert refresh_with(second_cookie) == 401
     assert client.get("/api/v1/auth/me", headers=bearer(r1.json())).status_code == 401
 
 

@@ -1,0 +1,6 @@
+# Development overlay: publishes the databases on loopback only. Never use it on a server.
+services:
+  postgres:
+    ports: ["127.0.0.1:5432:5432"]
+  neo4j:
+    ports: ["127.0.0.1:7474:7474", "127.0.0.1:7687:7687"]

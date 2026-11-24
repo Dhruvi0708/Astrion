@@ -10,6 +10,8 @@ describe('safeNext (open-redirect protection)', () => {
     ['//evil.example/app', '/app/overview'],
     ['/login', '/app/overview'],
     ['%E0%A4%A', '/app/overview'],
+    ['/app\\..\\evil.example', '/app/overview'],
+    [encodeURIComponent('/app/x\n//evil'), '/app/overview'],
   ])('%s → %s', (input, expected) => {
     expect(safeNext(input)).toBe(expected);
   });

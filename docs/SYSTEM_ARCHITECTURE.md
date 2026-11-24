@@ -84,7 +84,7 @@ Dependency health endpoints always return 200 with a status field so dashboards 
 
 ## Frontend
 
-See FRONTEND_ARCHITECTURE.md. Key decisions: route-level code splitting. Three.js is loaded only by the landing hero and by the lazily imported investigation knowledge graph (`KnowledgeGraph3D`). The sample universe uses Canvas 2D with a precomputed d3-force layout. Running investigations are shown by polling their recorded state; the UI never animates activity that the server didn't record.
+See FRONTEND_ARCHITECTURE.md. Key decisions: route-level code splitting. Three.js is loaded only by the landing hero and by the lazily imported investigation knowledge graph (`KnowledgeGraph3D`). The sample universe uses Canvas 2D with a precomputed d3-force layout. Running investigations are shown from server-sent events, with polling as fallback, and both carry only recorded state; the UI never animates activity that the server didn't record.
 
 ## Security
 

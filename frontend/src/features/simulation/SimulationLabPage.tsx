@@ -46,7 +46,7 @@ export default function SimulationLabPage() {
         demonstrate the scenario workspace. Results are unitless indices and must not be interpreted as predictions. Evidence-grounded simulation is planned.
       </Notice>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
         <Panel title="Scenario workspace" eyebrow="Parameters">
           <label htmlFor="scenario-name" className="text-xs text-ink-muted">
             Scenario name

@@ -203,7 +203,8 @@ class GraphOps:
         lbls = [_label(x) for x in labels]
         types = "|".join(_rel_type(t) for t in rel_types)
         nodes_res = self._run(
-            "MATCH (n {workspace_id: $ws}) WHERE any(l IN labels(n) WHERE l IN $labels) RETURN n ORDER BY n.key LIMIT $limit",
+            "MATCH (n {workspace_id: $ws}) WHERE any(l IN labels(n) WHERE l IN $labels) "
+            "RETURN n ORDER BY coalesce(n.mention_count, 0) DESC, n.key LIMIT $limit",
             ws=workspace_id,
             labels=lbls,
             limit=max(1, min(limit, 2000)),
@@ -218,6 +219,29 @@ class GraphOps:
             limit=max(1, min(limit * 4, 8000)),
         )
         return nodes, [_rel(r["r"], r["a"], r["b"]) for r in rels_res]
+
+    def neighbourhood(self, workspace_id: str, key: str, rel_types: list[RelType], depth: int = 1, limit: int = 200) -> tuple[list[GraphNode], list[GraphRel]]:
+        """Entities within `depth` hops of an entity, through the given relationship types (all nodes in-workspace)."""
+        d = max(1, min(int(depth), 3))
+        types = "|".join(_rel_type(t) for t in rel_types)
+        res = self._run(
+            f"MATCH p=(n:Entity {{workspace_id: $ws, key: $key}})-[:{types}*1..{d}]-(m:Entity {{workspace_id: $ws}}) "
+            "WHERE all(x IN nodes(p) WHERE x.workspace_id = $ws) WITH p LIMIT $limit "
+            "UNWIND relationships(p) AS r WITH DISTINCT r RETURN r, startNode(r) AS a, endNode(r) AS b",
+            ws=workspace_id,
+            key=_key(key),
+            limit=max(1, min(limit, 1000)),
+        )
+        nodes: dict[str, GraphNode] = {}
+        rels = []
+        for rec in res:
+            a, b = _node(rec["a"]), _node(rec["b"])
+            nodes[a.key], nodes[b.key] = a, b
+            rels.append(_rel(rec["r"], a.key, b.key))
+        center = self.get_node(workspace_id, key)
+        if center:
+            nodes[center.key] = center
+        return list(nodes.values()), rels
 
 
 def _translate(exc: Exception) -> GraphError:
@@ -320,6 +344,9 @@ class GraphRepository:
 
     def relationship_keys(self, workspace_id: str, rel_types: list[RelType]) -> list[str]:
         return self._read(lambda ops: ops.relationship_keys(workspace_id, rel_types))
+
+    def neighbourhood(self, *a: Any, **k: Any) -> tuple[list[GraphNode], list[GraphRel]]:
+        return self._read(lambda ops: ops.neighbourhood(*a, **k))
 
     def subgraph(self, workspace_id: str, labels: list[NodeLabel], rel_types: list[RelType], limit: int = 500) -> tuple[list[GraphNode], list[GraphRel]]:
         return self._read(lambda ops: ops.subgraph(workspace_id, labels, rel_types, limit))

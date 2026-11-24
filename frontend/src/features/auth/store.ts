@@ -26,6 +26,17 @@ interface AuthState {
 }
 
 let refreshInFlight: Promise<string | null> | null = null;
+
+/**
+ * Refresh tokens rotate on every use and all tabs share one cookie, so two tabs refreshing at once would make the
+ * slower one present a token that was just replaced and look signed out. The lock makes tabs take turns; the second
+ * then sends the new cookie. (Browsers without the Web Locks API fall back to per-tab single flight.)
+ */
+function exclusiveRefresh(): Promise<AuthTokens> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+  return locks ? (locks.request('astrion-session-refresh', () => api.refresh()) as Promise<AuthTokens>) : api.refresh();
+}
+
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
 
@@ -69,7 +80,7 @@ export const useAuth = create<AuthState>((set, get) => {
     bootstrap: async () => {
       if (get().status === 'authenticated') return;
       try {
-        apply(await api.refresh());
+        apply(await exclusiveRefresh());
       } catch (error) {
         set({ status: error instanceof ApiError && error.isUnavailable ? 'offline' : 'anonymous', user: null, accessToken: null, expiresAt: null });
       }
@@ -98,8 +109,7 @@ export const useAuth = create<AuthState>((set, get) => {
 
     refresh: () => {
       if (!refreshInFlight) {
-        refreshInFlight = api
-          .refresh()
+        refreshInFlight = exclusiveRefresh()
           .then((tokens) => {
             apply(tokens);
             return tokens.access_token;

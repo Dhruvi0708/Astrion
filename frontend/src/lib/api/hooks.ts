@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, ApiError } from './client';
-import type { DocumentCreate, InvestigationCreate, InvestigationDetail, SourceCreate, WorkspaceCreate } from './types';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { api, ApiError, streamEvents } from './client';
+import type { DocumentCreate, InvestigationCreate, InvestigationDetail, InvestigationSnapshot, SourceCreate, WorkspaceCreate } from './types';
 import { isActive } from './intelligence-types';
 
 export const queryKeys = {
@@ -116,10 +117,13 @@ export function useIntelligenceStatus() {
   return useQuery({ queryKey: queryKeys.intelligence, queryFn: api.intelligenceStatus, retry, staleTime: 60_000 });
 }
 
-export function useInvestigations(workspaceId: string | null) {
+export function useInvestigations(workspaceId: string | null, filters: { status?: string; q?: string } = {}) {
+  const filtered = Boolean(filters.status || filters.q);
   return useQuery({
-    queryKey: queryKeys.investigations(workspaceId ?? 'none'),
-    queryFn: () => api.listInvestigations(workspaceId as string),
+    queryKey: filtered ? [...queryKeys.investigations(workspaceId ?? 'none'), filters] : queryKeys.investigations(workspaceId ?? 'none'),
+    queryFn: () =>
+      filtered ? api.listInvestigationsFiltered(workspaceId as string, { ...filters, limit: 100 }) : api.listInvestigations(workspaceId as string),
+    placeholderData: filtered ? keepPreviousData : undefined,
     enabled: Boolean(workspaceId),
     retry,
     // Keep the list's status badges honest while anything is still running.
@@ -135,14 +139,17 @@ export function useCreateInvestigation(workspaceId: string | null) {
   });
 }
 
-/** Investigation detail. Polls only while the server reports the run as queued, running or cancelling. */
-export function useInvestigation(id: string | undefined) {
+/**
+ * Investigation detail. While the run is active it is kept fresh by server-sent events; polling is the
+ * fallback, used only when `shouldPoll` says the stream is not live.
+ */
+export function useInvestigation(id: string | undefined, shouldPoll: () => boolean = () => true) {
   return useQuery({
     queryKey: queryKeys.investigation(id ?? 'none'),
     queryFn: () => api.getInvestigation(id as string),
     enabled: Boolean(id),
     retry,
-    refetchInterval: (q) => (isActive(q.state.data?.status) ? LIVE_POLL_MS : false),
+    refetchInterval: (q) => (isActive(q.state.data?.status) && shouldPoll() ? LIVE_POLL_MS : false),
   });
 }
 
@@ -232,4 +239,89 @@ export function useEntityTimeline(workspaceId: string | null, entityId: string |
     enabled: Boolean(workspaceId && entityId),
     retry,
   });
+}
+
+/* ------------------------------------------------------------------ product views */
+
+export function useDashboard(workspaceId: string | null) {
+  return useQuery({
+    queryKey: ['workspaces', workspaceId ?? 'none', 'dashboard'],
+    queryFn: () => api.dashboard(workspaceId as string),
+    enabled: Boolean(workspaceId),
+    retry,
+    refetchInterval: (q) => ((q.state.data?.investigations.active ?? 0) > 0 ? LIVE_POLL_MS * 2 : false),
+  });
+}
+
+export function useExplorer<T>(kind: string, workspaceId: string | null, params: Record<string, string | number | undefined>, fetcher: () => Promise<T>) {
+  return useQuery({
+    queryKey: ['workspaces', workspaceId ?? 'none', 'explorer', kind, params],
+    queryFn: fetcher,
+    enabled: Boolean(workspaceId),
+    retry,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useDocumentIntelligence(documentId: string | null) {
+  return useQuery({
+    queryKey: ['documents', documentId ?? 'none', 'intelligence'],
+    queryFn: () => api.documentIntelligence(documentId as string),
+    enabled: Boolean(documentId),
+    retry,
+  });
+}
+
+export function useProcessDocument(sourceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (documentId: string) => api.processDocument(documentId),
+    onSuccess: (data) => {
+      qc.setQueryData(['documents', data.document_id, 'intelligence'], data);
+      qc.invalidateQueries({ queryKey: queryKeys.documents(sourceId) });
+    },
+  });
+}
+
+export type LiveState = 'connecting' | 'live' | 'ended' | 'polling';
+
+/**
+ * Subscribes to the investigation's server-sent events while the run is active and writes each recorded
+ * snapshot into the query cache. If the stream fails, the regular polling in useInvestigation takes over.
+ */
+export function useInvestigationEvents(id: string | undefined, active: boolean): LiveState {
+  const qc = useQueryClient();
+  const [state, setState] = useState<LiveState>('ended');
+  useEffect(() => {
+    if (!id || !active) {
+      setState('ended');
+      return;
+    }
+    const ctrl = new AbortController();
+    let ended = false;
+    setState('connecting');
+    streamEvents(
+      `/v1/investigations/${id}/events`,
+      (event, data) => {
+        if (event === 'snapshot') {
+          const snap = data as InvestigationSnapshot;
+          setState('live');
+          qc.setQueryData(queryKeys.investigation(id), snap.detail);
+          qc.setQueriesData({ queryKey: queryKeys.investigationPart(id, 'executions') }, snap.executions);
+        } else if (event === 'end') {
+          ended = true;
+          setState('ended');
+          qc.invalidateQueries({ queryKey: ['investigations', id] });
+        }
+      },
+      ctrl.signal,
+    )
+      .catch(() => undefined)
+      .then(() => {
+        // Failed, or closed without an `end` event (time limit, proxy, sign-out): let polling take over.
+        if (!ended && !ctrl.signal.aborted) setState('polling');
+      });
+    return () => ctrl.abort();
+  }, [id, active, qc]);
+  return state;
 }

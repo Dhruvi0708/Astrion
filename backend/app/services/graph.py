@@ -224,7 +224,14 @@ def entity_detail(db: Session, user: User, workspace_id: uuid.UUID, entity_id: u
         "graph_synced_at": ent.graph_synced_at.isoformat() if ent.graph_synced_at else None,
         "claims": claims,
         "relationships": rels,
+        **_context(db, workspace_id, ent.id),
     }
+
+
+def _context(db: Session, workspace_id: uuid.UUID, entity_id: uuid.UUID) -> dict:
+    from app.services.explorer import entity_context
+
+    return entity_context(db, workspace_id, entity_id)
 
 
 def consistency(db: Session, user: User, workspace_id: uuid.UUID, graph_client) -> dict:  # noqa: ANN001

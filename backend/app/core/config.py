@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     run_max_cost_usd: float = Field(default=20.0, gt=0, alias="ASTRION_RUN_MAX_COST_USD")
     max_debated_hypotheses: int = Field(default=3, ge=0, le=10, alias="ASTRION_MAX_DEBATED_HYPOTHESES")
     memory_claims: int = Field(default=20, ge=0, le=100, alias="ASTRION_MEMORY_CLAIMS")
+    max_active_investigations_per_user: int = Field(default=3, ge=1, alias="ASTRION_MAX_ACTIVE_INVESTIGATIONS_PER_USER")
     embedding_model: str = Field(default="voyage-3.5", alias="ASTRION_EMBEDDING_MODEL")
 
     @field_validator("cors_origins", "llm_fallback_models", mode="before")

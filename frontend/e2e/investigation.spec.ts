@@ -10,7 +10,8 @@ Ocean warming increases coral bleaching across the northern reef. Surveys record
 Marine heatwaves cause coral bleaching when temperatures stay above the seasonal maximum for several weeks.`;
 const REVIEW = `Independent Reef Review
 Ocean warming does not increase coral bleaching at the southern sites, where cooler upwelling persisted through 2023.
-Marine heatwaves cause coral bleaching in shallow lagoons, according to the review team.`;
+Marine heatwaves cause coral bleaching in shallow lagoons, according to the review team.
+Ocean Warming increases Coral Bleaching on shallow reef flats.`;
 
 test('create, run and inspect an investigation; other users cannot open it', async ({ page, browser }) => {
   const { token } = await registerViaApi(page.request, 'inv');
@@ -65,6 +66,29 @@ test('create, run and inspect an investigation; other users cannot open it', asy
   const workbench = page.url();
   await page.goto('/app/discovery');
   await expect(page.getByTestId('insights')).toBeVisible();
+  await page.goto(workbench);
+
+  // Cockpit: one card per agent, from recorded executions.
+  await page.getByRole('radio', { name: /^Agent activity/ }).click();
+  await expect(page.locator('[data-testid="agent-card"][data-role="synthesis"]')).toHaveAttribute('data-status', 'succeeded');
+
+  // Full report and Markdown export.
+  await page.goto(`${workbench}/report`);
+  await expect(page.getByRole('heading', { name: /Conclusions/ })).toBeVisible();
+  await expect(page.getByTestId('report-relationships')).toContainText('Ocean Warming — influences → Coral Bleaching');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Markdown' }).click();
+  expect((await download).suggestedFilename()).toBe('astrion-warming-and-bleaching-run1.md');
+
+  // Dashboard numbers, explorer, and a deep link from an entity into the graph.
+  await page.goto('/app/overview');
+  await expect(page.getByTestId('stat-Completed')).toContainText('1');
+  await page.goto('/app/explorer?tab=evidence');
+  await expect(page.getByTestId('explorer-evidence').filter({ hasText: 'survey.txt' }).first()).toBeVisible();
+  await page.goto('/app/explorer');
+  await page.getByTestId('entities-table').getByRole('link').first().click();
+  await expect(page.getByTestId('entity-inspector')).toContainText('Claims and evidence');
+  await page.getByRole('button', { name: 'Expand connections', exact: true }).first().click();
   await page.goto(workbench);
 
   // Workspace isolation: another user gets "not found" for the same URL.

@@ -12,6 +12,8 @@ const UniverseExplorerPage = lazy(() => import('@/features/universe/UniverseExpl
 const InvestigationRoomPage = lazy(() => import('@/features/investigation/InvestigationRoomPage'));
 const InvestigationsPage = lazy(() => import('@/features/workbench/InvestigationsPage'));
 const InvestigationWorkbenchPage = lazy(() => import('@/features/workbench/InvestigationWorkbenchPage'));
+const ReportPage = lazy(() => import('@/features/workbench/ReportPage'));
+const ExplorerPage = lazy(() => import('@/features/explorer/ExplorerPage'));
 const IntelligenceNetworkPage = lazy(() => import('@/features/agents/IntelligenceNetworkPage'));
 const DiscoveryLabPage = lazy(() => import('@/features/discovery/DiscoveryLabPage'));
 const SimulationLabPage = lazy(() => import('@/features/simulation/SimulationLabPage'));
@@ -53,6 +55,8 @@ export const routes: RouteObject[] = [
       { path: 'investigations', element: <InvestigationsPage /> },
       { path: 'investigations/sample', element: <InvestigationRoomPage /> },
       { path: 'investigations/:id', element: <InvestigationWorkbenchPage /> },
+      { path: 'investigations/:id/report', element: <ReportPage /> },
+      { path: 'explorer', element: <ExplorerPage /> },
       { path: 'intelligence', element: <IntelligenceNetworkPage /> },
       { path: 'discovery', element: <DiscoveryLabPage /> },
       { path: 'simulation', element: <SimulationLabPage /> },

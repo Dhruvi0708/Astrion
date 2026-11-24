@@ -134,3 +134,4 @@ export interface DocumentCreate {
 }
 
 export * from './intelligence-types';
+export * from './product-types';

@@ -36,7 +36,7 @@ test('creates a workspace, registers a source and uploads a document', async ({ 
 
   await page.getByTestId('document-upload').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('e2e field notes') });
   await expect(page.getByText(/notes\.txt/)).toBeVisible();
-  await expect(page.getByText(/stored · registered/)).toBeVisible();
+  await expect(page.getByTestId('processing-status')).toHaveText('registered'); // uploading is not extracting
 
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: /^Download notes\.txt/ }).click();

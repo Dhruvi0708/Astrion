@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Ban, Play, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Panel } from '@/components/ui/Panel';
 import { Segmented } from '@/components/ui/Segmented';
 import { EmptyState, ErrorState, Skeleton, SkeletonRows } from '@/components/ui/States';
@@ -21,6 +21,8 @@ import {
   useAssessments,
   useRuns,
   useSourceAssessments,
+  useInvestigationEvents,
+  type LiveState,
 } from '@/lib/api/hooks';
 import { isActive, type InvestigationDetail } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
@@ -28,6 +30,7 @@ import { AgentTimeline, ProviderNotice, StagePipeline } from './components/Activ
 import { ClaimsList, ContradictionCard, HypothesisCard, ReportView } from './components/Findings';
 import { GraphExplorer } from './graph/GraphExplorer';
 import { NextSteps, PlanningView, SourcesView } from './components/Intelligence';
+import { AgentRoster, DiscoveryCounters, RunMeta } from './components/Cockpit';
 import { INVESTIGATION_STATUS, formatCost } from './status';
 
 type Tab = 'activity' | 'planning' | 'evidence' | 'reasoning' | 'sources' | 'graph' | 'report';
@@ -67,7 +70,10 @@ function Actions({ detail }: { detail: InvestigationDetail }) {
 
 export default function InvestigationWorkbenchPage() {
   const { id } = useParams();
-  const inv = useInvestigation(id);
+  const liveRef = useRef<LiveState>('ended');
+  const inv = useInvestigation(id, () => liveRef.current !== 'live');
+  const liveState = useInvestigationEvents(id, isActive(inv.data?.status));
+  liveRef.current = liveState;
   const d = inv.data;
   const status = useIntelligenceStatus();
   const executions = useExecutions(id, d);
@@ -128,6 +134,9 @@ export default function InvestigationWorkbenchPage() {
             </Badge>
           </div>
           <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-ink-muted">{detail.question}</p>
+          <div className="mt-2">
+            <RunMeta detail={detail} liveState={liveState} active={live} />
+          </div>
           <p className="mt-1.5 text-2xs text-ink-faint">
             {detail.run_count ? `Run ${detail.run_count}` : 'Not run yet'}
             {detail.started_at && ` · started ${formatDate(detail.started_at)}`}
@@ -147,7 +156,12 @@ export default function InvestigationWorkbenchPage() {
         </div>
       )}
 
-      {detail.run_count > 0 && <StagePipeline detail={detail} />}
+      {detail.run_count > 0 && (
+        <>
+          <StagePipeline detail={detail} />
+          <DiscoveryCounters detail={detail} />
+        </>
+      )}
 
       <Segmented<Tab>
         label="Workbench view"
@@ -166,42 +180,47 @@ export default function InvestigationWorkbenchPage() {
       />
 
       {tab === 'activity' && (
-        <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-          <Panel title="Execution trace" eyebrow={live ? 'Live — refreshed from the server' : undefined}>
-            {executions.isPending ? <SkeletonRows rows={4} /> : <AgentTimeline executions={executions.data ?? []} runCount={detail.run_count} />}
+        <div className="space-y-4">
+          <Panel title="Agents" eyebrow={live ? 'Current run · updates as the server records each step' : 'Current run'}>
+            <AgentRoster executions={executions.data ?? []} runCount={detail.run_count} />
           </Panel>
-          <div className="space-y-4">
-            <Panel title="Plan">
-              {detail.plan ? (
-                <div className="space-y-2 text-xs text-ink-muted">
-                  <p className="text-ink">{detail.plan.objective}</p>
-                  <ol className="space-y-1.5">
-                    {detail.plan.sub_questions.map((q) => (
-                      <li key={q.id}>
-                        <span className="font-mono text-2xs text-cyan">{q.id}</span> {q.question}
+          <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+            <Panel title="Execution trace" eyebrow={live ? 'Live — refreshed from the server' : undefined}>
+              {executions.isPending ? <SkeletonRows rows={4} /> : <AgentTimeline executions={executions.data ?? []} runCount={detail.run_count} />}
+            </Panel>
+            <div className="space-y-4">
+              <Panel title="Plan">
+                {detail.plan ? (
+                  <div className="space-y-2 text-xs text-ink-muted">
+                    <p className="text-ink">{detail.plan.objective}</p>
+                    <ol className="space-y-1.5">
+                      {detail.plan.sub_questions.map((q) => (
+                        <li key={q.id}>
+                          <span className="font-mono text-2xs text-cyan">{q.id}</span> {q.question}
+                        </li>
+                      ))}
+                    </ol>
+                    {detail.plan.key_terms.length > 0 && <p className="text-2xs text-ink-faint">Key terms: {detail.plan.key_terms.join(', ')}</p>}
+                  </div>
+                ) : (
+                  <p className="text-xs text-ink-muted">The Orchestrator writes the plan when the run starts.</p>
+                )}
+              </Panel>
+              <Panel title="Graph changes">
+                {changes.data?.length ? (
+                  <ul className="max-h-72 space-y-1 overflow-auto text-2xs text-ink-muted">
+                    {changes.data.slice(-60).map((c) => (
+                      <li key={c.id}>
+                        <span className="text-cyan">{c.change_type.replace(/_/g, ' ')}</span>{' '}
+                        {String(c.details.name ?? c.details.statement ?? c.details.predicate ?? c.target_key).slice(0, 90)}
                       </li>
                     ))}
-                  </ol>
-                  {detail.plan.key_terms.length > 0 && <p className="text-2xs text-ink-faint">Key terms: {detail.plan.key_terms.join(', ')}</p>}
-                </div>
-              ) : (
-                <p className="text-xs text-ink-muted">The Orchestrator writes the plan when the run starts.</p>
-              )}
-            </Panel>
-            <Panel title="Graph changes">
-              {changes.data?.length ? (
-                <ul className="max-h-72 space-y-1 overflow-auto text-2xs text-ink-muted">
-                  {changes.data.slice(-60).map((c) => (
-                    <li key={c.id}>
-                      <span className="text-cyan">{c.change_type.replace(/_/g, ' ')}</span>{' '}
-                      {String(c.details.name ?? c.details.statement ?? c.details.predicate ?? c.target_key).slice(0, 90)}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-ink-muted">No changes to the knowledge graph yet.</p>
-              )}
-            </Panel>
+                  </ul>
+                ) : (
+                  <p className="text-xs text-ink-muted">No changes to the knowledge graph yet.</p>
+                )}
+              </Panel>
+            </div>
           </div>
         </div>
       )}
@@ -277,7 +296,12 @@ export default function InvestigationWorkbenchPage() {
       {tab === 'report' && (
         <Panel>
           {latest ? (
-            <ReportView report={latest} hypotheses={hypotheses.data ?? []} contradictions={contradictions.data ?? []} />
+            <div className="space-y-3">
+              <ButtonLink to={`/app/investigations/${detail.id}/report`} variant="primary" size="sm">
+                Open full report · export Markdown or PDF
+              </ButtonLink>
+              <ReportView report={latest} hypotheses={hypotheses.data ?? []} contradictions={contradictions.data ?? []} />
+            </div>
           ) : (
             <EmptyState
               title="No report yet"

@@ -138,14 +138,14 @@ export default function SettingsPage() {
             </div>
           </div>
         </Panel>
-        <Panel title="About this build" eyebrow="Phase 1 · Foundation">
+        <Panel title="About this build" eyebrow="ASTRION">
           <dl className="grid grid-cols-[120px_1fr] gap-y-2 text-xs">
             <dt className="text-ink-faint">Frontend</dt>
             <dd className="text-ink-muted">React 18 · Vite · Three.js</dd>
             <dt className="text-ink-faint">API</dt>
             <dd className="text-ink-muted">{api.data ? `v${api.data.version} · ${api.data.environment}` : 'Not connected'}</dd>
             <dt className="text-ink-faint">Authentication</dt>
-            <dd className="text-ink-muted">Not yet implemented (single-user dev mode)</dd>
+            <dd className="text-ink-muted">Accounts with rotating sessions; workspaces are private to their owner</dd>
             <dt className="text-ink-faint">AI providers</dt>
             <dd className="text-ink-muted">Configured server-side only; no keys in the browser</dd>
           </dl>

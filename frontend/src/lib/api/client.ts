@@ -1,4 +1,12 @@
 import type {
+  Dashboard,
+  DocumentIntelligence,
+  EntityRow,
+  EvidenceRow,
+  Neighbourhood,
+  PageOf,
+  WorkspaceContradiction,
+  WorkspaceHypothesis,
   AgentExecution,
   AgentMessageRecord,
   Assessment,
@@ -191,7 +199,7 @@ export async function requestBlob(path: string): Promise<{ blob: Blob; filename:
   const response = await fetchWithAuth(path, {});
   if (!response.ok) throw await toError(response);
   const disposition = response.headers.get('content-disposition') ?? '';
-  const match = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  const match = /filename\*=UTF-8''([^;]+)/i.exec(disposition) ?? /filename="([^"]+)"/i.exec(disposition);
   return { blob: await response.blob(), filename: match ? decodeURIComponent(match[1]) : null };
 }
 
@@ -255,6 +263,25 @@ export const api = {
     }),
   entityDetail: (workspaceId: string, entityId: string) => request<EntityDetail>(`/v1/workspaces/${workspaceId}/graph/entities/${entityId}`),
 
+  // Workspace product views
+  dashboard: (ws: string) => request<Dashboard>(`/v1/workspaces/${ws}/dashboard`),
+  explorerEntities: (ws: string, query: { q?: string; entity_type?: string; limit?: number; offset?: number }) =>
+    request<PageOf<EntityRow>>(`/v1/workspaces/${ws}/entities`, { query }),
+  explorerHypotheses: (ws: string, query: { q?: string; status?: string; consensus?: string; limit?: number; offset?: number }) =>
+    request<PageOf<WorkspaceHypothesis>>(`/v1/workspaces/${ws}/hypotheses`, { query }),
+  explorerContradictions: (ws: string, query: { resolved?: string; limit?: number; offset?: number }) =>
+    request<PageOf<WorkspaceContradiction>>(`/v1/workspaces/${ws}/contradictions`, { query }),
+  explorerEvidence: (ws: string, query: { q?: string; limit?: number; offset?: number }) =>
+    request<PageOf<EvidenceRow>>(`/v1/workspaces/${ws}/evidence`, { query }),
+  graphSearch: (ws: string, q: string) => request<EntityRow[]>(`/v1/workspaces/${ws}/graph/search`, { query: { q } }),
+  neighbourhood: (ws: string, entityId: string, depth = 1) =>
+    request<Neighbourhood>(`/v1/workspaces/${ws}/graph/entities/${entityId}/neighbourhood`, { query: { depth } }),
+  processDocument: (id: string) => request<DocumentIntelligence>(`/v1/documents/${id}/process`, { method: 'POST' }),
+  documentIntelligence: (id: string) => request<DocumentIntelligence>(`/v1/documents/${id}/intelligence`),
+  reportMarkdown: (id: string, run?: number) => requestBlob(`/v1/investigations/${id}/report.md${run ? `?run=${run}` : ''}`),
+  listInvestigationsFiltered: (ws: string, query: { status?: string; q?: string; limit?: number }) =>
+    request<Page<Investigation>>(`/v1/workspaces/${ws}/investigations`, { query }),
+
   // Phase 3
   listRuns: (id: string) => request<RunRecord[]>(`/v1/investigations/${id}/runs`),
   nextSteps: (id: string) => request<Recommendation[]>(`/v1/investigations/${id}/next-steps`),
@@ -264,5 +291,34 @@ export const api = {
   workspaceInsights: (workspaceId: string) => request<WorkspaceInsights>(`/v1/workspaces/${workspaceId}/insights`),
   entityTimeline: (workspaceId: string, entityId: string) => request<TimelineEvent[]>(`/v1/workspaces/${workspaceId}/graph/entities/${entityId}/timeline`),
 };
+
+/**
+ * Reads a Server-Sent Events stream with the session's Bearer token (EventSource cannot send headers).
+ * Calls `onEvent` for every event; resolves when the server closes the stream.
+ */
+export async function streamEvents(path: string, onEvent: (event: string, data: unknown) => void, signal: AbortSignal): Promise<void> {
+  const response = await fetchWithAuth(path, { signal, headers: { Accept: 'text/event-stream' } });
+  if (!response.ok || !response.body) throw await toError(response);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buffer += decoder.decode(value, { stream: true });
+    let cut: number;
+    while ((cut = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, cut);
+      buffer = buffer.slice(cut + 2);
+      let event = 'message';
+      const data: string[] = [];
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+      }
+      if (data.length) onEvent(event, JSON.parse(data.join('\n')));
+    }
+  }
+}
 
 export const API_BASE_URL = BASE_URL;

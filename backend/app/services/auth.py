@@ -191,6 +191,20 @@ def logout_all(db: Session, user_id: uuid.UUID) -> None:
     db.commit()
 
 
+def login_is_live(db: Session, session_id: uuid.UUID) -> bool:
+    """True while the login that started this session is active. Rotation keeps it alive; sign-out, sign-out
+    everywhere, token theft and expiry end it. Used by long-lived streams, which outlast one access token."""
+    session = db.get(AuthSession, session_id)
+    if session is None:
+        return False
+    live = db.scalar(
+        select(AuthSession.id)
+        .where(AuthSession.family_id == session.family_id, AuthSession.revoked_at.is_(None), AuthSession.expires_at > datetime.now(UTC))
+        .limit(1)
+    )
+    return live is not None
+
+
 def resolve_session_user(db: Session, user_id: uuid.UUID, session_id: uuid.UUID) -> User:
     """Validates that an access token's session is still live and returns its user."""
     session = db.get(AuthSession, session_id)

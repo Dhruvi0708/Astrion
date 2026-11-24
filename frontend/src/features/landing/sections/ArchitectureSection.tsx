@@ -105,9 +105,9 @@ export function ArchitectureSection() {
                       cy={p.y}
                       r={24}
                       fill="#0a0e1a"
-                      stroke={isActive ? '#4fe3f0' : s.status === 'foundation' ? '#2c3858' : '#1c253d'}
+                      stroke={isActive ? '#4fe3f0' : '#2c3858'}
                       strokeWidth={isActive ? 1.5 : 1}
-                      strokeDasharray={s.status === 'planned' && !isActive ? '3 3' : undefined}
+                      strokeDasharray={undefined}
                     />
                     <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={12} fontFamily="ui-monospace, monospace" fill={isActive ? '#4fe3f0' : '#8b97ad'}>
                       0{s.index}
@@ -180,7 +180,9 @@ export function ArchitectureSection() {
                 className="panel bg-surface/50 p-6 md:p-7"
               >
                 <div className="flex items-center gap-2">
-                  {stage.status === 'foundation' ? <Badge tone="cyan">Foundation in Phase 1</Badge> : <Badge tone="planned">Planned</Badge>}
+                  <Badge tone="live" dot>
+                    Live in ASTRION
+                  </Badge>
                 </div>
                 <h3 className="mt-4 font-display text-2xl font-medium text-ink">{stage.tagline}</h3>
                 <p className="mt-3 leading-relaxed text-ink-muted">{stage.description}</p>

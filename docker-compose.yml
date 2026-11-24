@@ -1,26 +1,63 @@
-# Local infrastructure for ASTRION development.
-# NOTE: not exercised locally (Docker was unavailable). CI uses the same images as service containers.
+# ASTRION full stack: PostgreSQL (system of record), Neo4j (graph projection), API, web.
+#
+#   cp .env.production.example .env      # then set every secret
+#   docker compose up -d --build
+#   open http://localhost:8080
+#
+# Only the web container is published. The API, PostgreSQL and Neo4j stay on the internal network.
+# Local development (databases reachable from the host):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres neo4j
+# NOTE: this file was written and validated without a Docker engine available; see docs/DEPLOYMENT.md.
+name: astrion
+
 services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: astrion
-      POSTGRES_PASSWORD: astrion
-      POSTGRES_DB: astrion
-    ports: ["5432:5432"]
+      POSTGRES_USER: ${POSTGRES_USER:-astrion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-astrion}
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U astrion"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-astrion}"]
       interval: 5s
-      retries: 10
+      retries: 20
+    restart: unless-stopped
 
   neo4j:
     image: neo4j:5.26-community
     environment:
-      NEO4J_AUTH: neo4j/change-me-please
-    ports: ["7474:7474", "7687:7687"]
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env}
+      NEO4J_server_memory_heap_max__size: ${NEO4J_HEAP:-1G}
     volumes: [neo4jdata:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 >/dev/null || exit 1"]
+      interval: 10s
+      retries: 30
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    env_file: .env
+    environment:
+      ASTRION_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-astrion}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-astrion}
+      ASTRION_NEO4J_URI: bolt://neo4j:7687
+      ASTRION_NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      ASTRION_STORAGE_LOCAL_ROOT: /data/storage
+    volumes: [storage:/data/storage]
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    ports: ["${ASTRION_WEB_PORT:-8080}:80"]
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
 
 volumes:
   pgdata:
   neo4jdata:
+  storage:

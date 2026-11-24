@@ -88,3 +88,17 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Reports print as clean black-on-white documents ("Save as PDF" from the print dialog). */
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  body * {
+    color-adjust: exact;
+  }
+}

@@ -1,5 +1,5 @@
 # Mirrors pyproject.toml for environments that prefer requirements files.
-fastapi==0.115.5
+fastapi==0.163.1
 uvicorn[standard]==0.32.1
 pydantic==2.10.2
 pydantic-settings==2.7.0
@@ -10,11 +10,11 @@ psycopg[binary]==3.2.3
 neo4j==5.26.0
 anthropic>=2.8,<3
 httpx==0.28.0
-pytest==8.3.3
+pytest==9.2.0
 argon2-cffi==23.1.0
-PyJWT==2.10.1
-python-multipart==0.0.20
+PyJWT==2.15.1
+python-multipart==0.0.34
 boto3==1.35.76
 moto[s3]==5.0.22
 ruff==0.8.2
-pypdf==5.1.0
+pypdf==7.1.0

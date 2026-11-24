@@ -2,7 +2,7 @@
 
 ASTRION turns fragmented information into an interconnected, evolving knowledge universe: sources become documents, documents yield claims and evidence, claims connect into a traceable knowledge graph, and agents investigate that graph to surface contradictions, gaps and hypotheses.
 
-**Current state: Phase 3, autonomous intelligence.** On top of the Phase 2 engine, investigations now:
+**Current state: complete product build.** A real-data dashboard, a live investigation cockpit, 3D graph exploration, an Intelligence Explorer, cited reports with Markdown and PDF export, and container deployment files ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), not yet run) sit on top of the engine. Investigations:
 - plan adaptively within hard budgets, explaining each next step
 - reuse workspace memory
 - debate hypotheses (Challenger vs author, judged by an independent verifier, with evidence-based consensus)
@@ -15,7 +15,7 @@ A reproducible benchmark harness scores the engine ([docs/EVALUATION.md](docs/EV
 
 **Phase 2, the core intelligence engine:** Ask a question over your documents and seven agents (Orchestrator, Research, Knowledge, Hypothesis, Contradiction, Verification, Synthesis) produce evidence-checked claims, an evolving knowledge graph (PostgreSQL + Neo4j), hypotheses with a transparent confidence method, contradictions, verification verdicts and a cited report. Every step is recorded and resumable. The engine is in [docs/INTELLIGENCE_ENGINE.md](docs/INTELLIGENCE_ENGINE.md).
 
-> **Not yet verified with real Claude output.** No API key was available while building Phase 2. Tests and the e2e flow use the deterministic *fixture* provider, which the UI always labels "not AI".
+> **Not yet verified with real Claude output.** No API key was available during development. Tests and the e2e flow use the deterministic *fixture* provider, which the UI always labels "not AI".
 
 | What works today | What is sample / planned |
 |---|---|
@@ -33,7 +33,7 @@ Astrion/
 ├── backend/             FastAPI + SQLAlchemy 2 + Alembic + Neo4j driver + storage; pytest
 ├── docs/                Product, architecture, security, storage, Neo4j, AI, schema, API, testing, roadmap
 ├── .github/workflows/   CI (lint, types, unit tests, PostgreSQL + Neo4j integration, migrations, Playwright)
-└── docker-compose.yml   Optional PostgreSQL + Neo4j for local development
+└── docker-compose.yml   Full stack (add docker-compose.dev.yml for local databases only)
 ```
 
 ## Prerequisites
@@ -47,7 +47,7 @@ Astrion/
 
 ### 1. Infrastructure
 ```bash
-docker compose up -d postgres neo4j
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres neo4j
 ```
 (or point the env vars below at your own PostgreSQL / Neo4j — see [docs/NEO4J.md](docs/NEO4J.md))
 
@@ -131,3 +131,4 @@ Details: [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) · CI: [.github/wo
 - [Intelligence engine](docs/INTELLIGENCE_ENGINE.md) · [Evaluation](docs/EVALUATION.md) · [Document storage](docs/STORAGE.md) · [Neo4j](docs/NEO4J.md) · [AI providers](docs/AI_PROVIDERS.md)
 - [Database schema](docs/DATABASE_SCHEMA.md) · [API contract](docs/API_CONTRACT.md)
 - [Testing strategy & CI](docs/TESTING_STRATEGY.md)
+- [Deployment, backup and recovery](docs/DEPLOYMENT.md)

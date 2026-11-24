@@ -160,6 +160,21 @@ Phase 3 also adds fields to existing payloads:
 - **Contradictions:** `resolution_kind`, `resolution`.
 - **Comparison:** an `evolution` list.
 
+## Product routes (owner-scoped)
+
+| Method & path | Result |
+|---|---|
+| `GET /workspaces/{ws}/dashboard` | Counts, recent discoveries and agent activity, all from stored records. |
+| `GET /workspaces/{ws}/entities`, `/hypotheses`, `/contradictions`, `/evidence` | Libraries with search and filters. |
+| `GET /workspaces/{ws}/graph/search?q=` | Entities by name. |
+| `GET /workspaces/{ws}/graph/entities/{id}/neighbourhood?depth=` | Neo4j neighbourhood. Falls back to PostgreSQL and says so in `source`. |
+| `GET /workspaces/{ws}/investigations?status=&q=` | History filters. |
+| `GET /investigations/{id}/events` | Server-Sent Events: `snapshot` on each recorded change, `end` when the run is over. Needs the Bearer header, so use `fetch` rather than `EventSource`. Closes on sign-out. |
+| `GET /investigations/{id}/report.md?run=` | The 14-section report as Markdown. |
+| `POST /documents/{id}/process`, `GET /documents/{id}/intelligence` | Extract text now; what was extracted and which investigations used it. |
+
+`start` and `resume` return 429 beyond `ASTRION_MAX_ACTIVE_INVESTIGATIONS_PER_USER` active runs.
+
 ## Not in v1 (intentionally)
 
 No endpoints exist for simulations, human verification of hypotheses, or editing extracted knowledge. They will be added with their features rather than as placeholder endpoints.

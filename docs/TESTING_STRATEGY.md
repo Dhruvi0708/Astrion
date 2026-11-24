@@ -109,6 +109,21 @@ Bugs caught while building Phase 3:
 - A naive/aware datetime comparison when ordering investigations.
 - An absolute BM25 cut-off missed relevant memory in small corpora.
 
+## Final build results (2026-11-24, local Windows 11)
+
+| Suite | Result |
+|---|---|
+| Backend on SQLite + real Neo4j 5.26, upgraded dependencies | 206 passed, 0 skipped |
+| Backend on PostgreSQL, and Alembic upgrade/downgrade | **Not run on the final code.** The local cluster was damaged. Last full PostgreSQL + Neo4j run: 193 passed, before the product routes and dependency upgrades |
+| Ruff lint and format | pass |
+| Vitest / ESLint / `tsc` / build | 57 passed / pass / pass / pass |
+| Playwright (API on SQLite + real Neo4j, fixture provider) | 15 passed in one run |
+| Restart persistence | Dashboard identical after stopping and restarting the API |
+| Screen sweep (15 routes at 1440, 820 and 390 px) | no horizontal overflow, error states or console errors |
+| Docker images and compose | not built or run |
+
+No test calls a real model. Explorer, ReportPage and event-stream parsing are covered by Playwright and API tests, not by unit tests.
+
 ## Gaps
 - **No real Claude run.** No `ANTHROPIC_API_KEY` was available, so agent quality and the live structured-output request are unverified; only the request shape is tested.
 - CI unverified until pushed.

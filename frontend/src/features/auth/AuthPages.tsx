@@ -12,7 +12,9 @@ export function safeNext(raw: string | null): string {
   if (!raw) return '/app/overview';
   try {
     const decoded = decodeURIComponent(raw);
-    return decoded.startsWith('/app') && !decoded.startsWith('//') ? decoded : '/app/overview';
+    // Same-app paths only; backslashes and control characters are rejected outright (some routers treat `\` as `/`).
+    const unsafe = decoded.includes('\\') || [...decoded].some((ch) => ch.charCodeAt(0) < 0x20);
+    return decoded.startsWith('/app') && !decoded.startsWith('//') && !unsafe ? decoded : '/app/overview';
   } catch {
     return '/app/overview';
   }

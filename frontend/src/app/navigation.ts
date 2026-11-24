@@ -1,4 +1,4 @@
-import { FlaskConical, FolderOpen, LayoutDashboard, Network, Orbit, Search, Settings, Sparkles, type LucideIcon } from 'lucide-react';
+import { FlaskConical, FolderOpen, LayoutDashboard, Library, Network, Orbit, Search, Settings, Sparkles, type LucideIcon } from 'lucide-react';
 
 export interface NavItem {
   to: string;
@@ -13,9 +13,9 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   {
     to: '/app/overview',
-    label: 'Overview',
-    short: 'Overview',
-    description: 'Workspace summary, sources and activity',
+    label: 'Dashboard',
+    short: 'Dashboard',
+    description: 'Workspace state: investigations, knowledge and activity',
     icon: LayoutDashboard,
     group: 'environments',
   },
@@ -26,6 +26,14 @@ export const NAV_ITEMS: NavItem[] = [
     short: 'Investigate',
     description: 'Questions, claims, evidence and findings',
     icon: Search,
+    group: 'environments',
+  },
+  {
+    to: '/app/explorer',
+    label: 'Intelligence Explorer',
+    short: 'Explore',
+    description: 'Entities, hypotheses, contradictions and evidence',
+    icon: Library,
     group: 'environments',
   },
   {
@@ -52,7 +60,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: FlaskConical,
     group: 'environments',
   },
-  { to: '/app/sources', label: 'Sources', short: 'Sources', description: 'Register sources and document metadata', icon: FolderOpen, group: 'workspace' },
+  {
+    to: '/app/sources',
+    label: 'Sources',
+    short: 'Sources',
+    description: 'Upload documents, extract text, see what was found',
+    icon: FolderOpen,
+    group: 'workspace',
+  },
   { to: '/app/settings', label: 'Settings', short: 'Settings', description: 'System status and preferences', icon: Settings, group: 'workspace' },
 ];
 

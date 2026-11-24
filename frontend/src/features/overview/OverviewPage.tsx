@@ -1,58 +1,16 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, FilePlus2, FolderOpen, Orbit, Plus, Search, Sparkles } from 'lucide-react';
-import { Badge, SampleBadge } from '@/components/ui/Badge';
+import { FilePlus2, FolderOpen, Orbit, Plus, Search, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { Panel } from '@/components/ui/Panel';
 import { EmptyState, ErrorState, SkeletonRows } from '@/components/ui/States';
 import { Page, PageHeader } from '@/components/layout/PageHeader';
-import { DISCOVERIES, DISCOVERY_META, STATUS_META } from '@/data/sample/discoveries';
-import { graphStats, sampleGraph } from '@/data/sample/graph';
-import { SAMPLE_INVESTIGATIONS } from '@/data/sample/investigations';
+import { DashboardSections } from './Dashboard';
 import { useActiveWorkspace } from '@/features/workspaces/useActiveWorkspace';
 import { useSources } from '@/lib/api/hooks';
 import { formatDate, pluralize, relativeTime } from '@/lib/format';
 import { useUi } from '@/stores/ui';
-
-function GraphSummary() {
-  const stats = graphStats(sampleGraph);
-  const clusters = sampleGraph.clusters.map((c) => ({ ...c, count: sampleGraph.nodes.filter((n) => n.cluster === c.id).length }));
-  const max = Math.max(...clusters.map((c) => c.count));
-  return (
-    <Panel title="Knowledge graph" eyebrow="Universe" actions={<SampleBadge label="Sample" />}>
-      <dl className="grid grid-cols-3 gap-3">
-        {[
-          ['Nodes', stats.nodes],
-          ['Relationships', stats.edges],
-          ['Clusters', stats.clusters],
-        ].map(([k, v]) => (
-          <div key={k as string} className="rounded-md border border-line bg-deep/60 px-3 py-2.5">
-            <dt className="text-2xs uppercase tracking-[0.1em] text-ink-faint">{k}</dt>
-            <dd className="mt-1 font-display text-xl font-medium text-ink">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="eyebrow mb-2 mt-5">Nodes per cluster</p>
-      <ul className="space-y-1.5">
-        {clusters.map((c) => (
-          <li key={c.id} className="grid grid-cols-[120px_1fr_24px] items-center gap-3 text-xs">
-            <span className="truncate text-ink-muted">{c.label}</span>
-            <span className="h-1.5 rounded-full bg-line">
-              <span className="block h-full rounded-full" style={{ width: `${(c.count / max) * 100}%`, background: c.color, opacity: 0.8 }} />
-            </span>
-            <span className="text-right font-mono text-2xs text-ink-faint">{c.count}</span>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-5 flex items-center justify-between border-t border-line pt-3">
-        <span className="text-2xs text-ink-faint">Counts computed from the sample graph.</span>
-        <Link to="/app/universe" className="inline-flex items-center gap-1 text-xs text-cyan hover:underline">
-          Explore <ArrowRight size={12} />
-        </Link>
-      </div>
-    </Panel>
-  );
-}
 
 function WorkspacesPanel() {
   const { workspaces, active, isLoading, isError, error, refetch, setActiveId } = useActiveWorkspace();
@@ -163,38 +121,6 @@ function SourcesPanel() {
   );
 }
 
-function ActivityTimeline() {
-  const { workspaces, active } = useActiveWorkspace();
-  const sources = useSources(active?.id ?? null);
-  const events = useMemo(() => {
-    const list = [
-      ...workspaces.map((w) => ({ id: `w-${w.id}`, at: w.created_at, text: `Workspace “${w.name}” created`, kind: 'workspace' as const })),
-      ...(sources.data?.items ?? []).map((s) => ({ id: `s-${s.id}`, at: s.created_at, text: `Source “${s.title}” registered`, kind: 'source' as const })),
-    ];
-    return list.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
-  }, [workspaces, sources.data]);
-
-  return (
-    <Panel title="Activity" eyebrow="Live · API">
-      {events.length === 0 ? (
-        <p className="py-6 text-center text-xs text-ink-muted">Activity appears here as you create workspaces and register sources.</p>
-      ) : (
-        <ol className="relative space-y-4 before:absolute before:bottom-1 before:left-[5px] before:top-1 before:w-px before:bg-line">
-          {events.map((e) => (
-            <li key={e.id} className="relative pl-6">
-              <span
-                className={`absolute left-0 top-1 h-[11px] w-[11px] rounded-full border-2 border-abyss ${e.kind === 'workspace' ? 'bg-cyan' : 'bg-verified'}`}
-              />
-              <p className="text-[0.8rem] text-ink">{e.text}</p>
-              <p className="text-2xs text-ink-faint">{relativeTime(e.at)}</p>
-            </li>
-          ))}
-        </ol>
-      )}
-    </Panel>
-  );
-}
-
 export default function OverviewPage() {
   const { active } = useActiveWorkspace();
   const openCreate = useUi((s) => s.setCreateWorkspaceOpen);
@@ -204,29 +130,29 @@ export default function OverviewPage() {
   }, []);
 
   const quick = [
-    { label: 'Register a source', hint: 'Add metadata via the API', icon: FilePlus2, to: '/app/sources?new=1' },
-    { label: 'Explore the universe', hint: 'Open the graph explorer', icon: Orbit, to: '/app/universe' },
-    { label: 'Open investigation room', hint: 'Claims and evidence', icon: Search, to: '/app/investigations' },
-    { label: 'Review discoveries', hint: 'Hypotheses and gaps', icon: Sparkles, to: '/app/discovery' },
+    { label: 'Start an investigation', hint: 'Ask a research question', icon: Search, to: '/app/investigations?new=1' },
+    { label: 'Add documents', hint: 'Upload files to a source', icon: FilePlus2, to: '/app/sources?new=1' },
+    { label: 'Explore the graph', hint: 'Entities and relationships in 3D', icon: Orbit, to: '/app/universe' },
+    { label: 'Browse discoveries', hint: 'Hypotheses, conflicts, evidence', icon: Sparkles, to: '/app/explorer' },
   ];
 
   return (
     <Page>
       <PageHeader
-        eyebrow="Overview"
+        eyebrow="Dashboard"
         title={active?.name ?? 'Your intelligence workspace'}
-        description={
-          active?.description ??
-          'A summary of your workspace: live data from the API, alongside clearly labelled sample content for capabilities still in development.'
-        }
+        description={active?.description ?? 'The state of this workspace: every number below is read from your investigations, documents and knowledge graph.'}
         actions={
           <>
             <Button variant="ghost" onClick={() => openCommand(true)}>
               <Search size={14} /> Search
             </Button>
-            <Button variant="primary" onClick={() => openCreate(true)}>
+            <Button variant="ghost" onClick={() => openCreate(true)}>
               <Plus size={14} /> New workspace
             </Button>
+            <ButtonLink to="/app/investigations?new=1" variant="primary">
+              <Search size={14} /> New investigation
+            </ButtonLink>
           </>
         }
       />
@@ -245,49 +171,11 @@ export default function OverviewPage() {
         ))}
       </section>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+      <div className="mt-6">{active ? <DashboardSections workspaceId={active.id} /> : null}</div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <WorkspacesPanel />
         <SourcesPanel />
-        <ActivityTimeline />
-      </div>
-
-      <div className="mt-4 grid gap-4 xl:grid-cols-3">
-        <GraphSummary />
-        <Panel title="Latest discoveries" eyebrow="Discovery" actions={<SampleBadge label="Sample" />} bodyClassName="p-2">
-          <ul>
-            {DISCOVERIES.map((d) => (
-              <li key={d.id}>
-                <Link to={`/app/discovery?d=${d.id}`} className="block rounded-md px-2.5 py-2 hover:bg-raised/50">
-                  <span className="flex items-center gap-2">
-                    <span className="text-2xs font-medium uppercase tracking-[0.1em]" style={{ color: DISCOVERY_META[d.type].color }}>
-                      {DISCOVERY_META[d.type].label}
-                    </span>
-                    <Badge tone={STATUS_META[d.status].tone}>{STATUS_META[d.status].label}</Badge>
-                  </span>
-                  <span className="mt-1 block truncate text-[0.82rem] text-ink">{d.title}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-        <Panel title="Recent investigations" eyebrow="Investigation" actions={<SampleBadge label="Sample" />} bodyClassName="p-2">
-          <ul>
-            {SAMPLE_INVESTIGATIONS.map((inv) => (
-              <li key={inv.id}>
-                <Link to={`/app/investigations?i=${inv.id}`} className="block rounded-md px-2.5 py-2 hover:bg-raised/50">
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[0.82rem] text-ink">{inv.title}</span>
-                    <Badge tone={inv.status === 'active' ? 'cyan' : 'neutral'}>{inv.status}</Badge>
-                  </span>
-                  <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-ink-muted">{inv.question}</span>
-                  <span className="mt-1.5 block text-2xs text-ink-faint">
-                    {pluralize(inv.claims.length, 'claim')} · {pluralize(inv.sourceIds.length, 'source')} · {inv.updated}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Panel>
       </div>
     </Page>
   );

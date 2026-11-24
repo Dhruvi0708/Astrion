@@ -32,15 +32,14 @@ export function FinalCta() {
           <span className="text-ink-muted">where knowledge keeps learning.</span>
         </h2>
         <p className="mx-auto mt-6 max-w-xl leading-relaxed text-ink-muted">
-          The Phase 1 foundation is live: workspaces, source registration, the knowledge-graph explorer and the environments where investigation, discovery and
-          simulation will run.
+          Upload your documents, ask a question, and watch the agents work: every claim quoted, every hypothesis challenged, every conclusion traceable.
         </p>
         <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
           <ButtonLink to="/app/universe" variant="primary" size="lg" className="group">
             Enter the Universe <ArrowRight size={17} className="transition-transform group-hover:translate-x-0.5" />
           </ButtonLink>
-          <ButtonLink to="/app/overview" variant="secondary" size="lg">
-            Open your workspace
+          <ButtonLink to="/app/investigations?new=1" variant="secondary" size="lg">
+            Start an investigation
           </ButtonLink>
         </div>
       </motion.div>

@@ -12,14 +12,18 @@ import { PageLoader } from './PageLoader';
 export function AppShell() {
   const { pathname } = useLocation();
   return (
-    <div className="flex min-h-screen bg-abyss">
+    <div className="flex min-h-screen bg-abyss print:block print:bg-white">
       <a href="#main" className="sr-only z-[100] rounded bg-cyan px-3 py-2 text-void focus:not-sr-only focus:fixed focus:left-3 focus:top-3">
         Skip to content
       </a>
-      <Sidebar />
-      <MobileNav />
+      <div className="contents print:hidden">
+        <Sidebar />
+        <MobileNav />
+      </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
+        <div className="print:hidden">
+          <Topbar />
+        </div>
         <main id="main" className="relative min-w-0 flex-1">
           <ErrorBoundary key={pathname} region="This environment">
             <Suspense fallback={<PageLoader />}>

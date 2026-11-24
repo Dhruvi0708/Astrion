@@ -44,6 +44,13 @@ See [STORAGE.md](STORAGE.md): server-generated keys, extension + content sniffin
 - `.env` files are git-ignored; only `.env.example` templates are tracked (verified: no secrets in history at the Phase 1.5 baseline).
 - Provider keys (`ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, S3 keys, Neo4j password, JWT secret) are `SecretStr` server-side and never sent to the browser.
 
+## Product-build hardening
+- Event streams authenticate with the Bearer token, hold no worker thread, and close when the session is signed out (tested).
+- `?next=` redirects must stay inside `/app`; backslashes and control characters are rejected (tested).
+- nginx overwrites `X-Forwarded-For`, so a client cannot spoof the address the login limiter uses.
+- Each user has a limit on active investigations (429 beyond it).
+- Dependency audit results: [DEPLOYMENT.md](DEPLOYMENT.md#security-notes).
+
 ## Known limitations
 - No email verification, password reset or MFA yet.
 - Rate limiting is per process.
